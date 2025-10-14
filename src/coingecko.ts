@@ -32,6 +32,8 @@ function getTokenAddress(tokenId: string, chainId: number, tokenAddresses?: { [k
       'usdt': '0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2',
       'wrapped-bitcoin': '0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf', // cbBTC
       'wbtc': '0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf',
+      'cana': '0x88a3548e2a662936268bFD4366e48D38183E3958', // CANA on Base
+      'cana-holdings-california-carbon-credits': '0x88a3548e2a662936268bFD4366e48D38183E3958', // CANA full CoinGecko ID
     },
     // Ethereum mainnet (1)
     1: {
@@ -44,6 +46,8 @@ function getTokenAddress(tokenId: string, chainId: number, tokenAddresses?: { [k
       'usdt': '0xdAC17F958D2ee523a2206206994597C13D831ec7',
       'wrapped-bitcoin': '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599', // WBTC
       'wbtc': '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599',
+      'cana': '0x01995A697752266d8E748738aAa3F06464B8350B', // CANA on Ethereum mainnet
+      'cana-holdings-california-carbon-credits': '0x01995A697752266d8E748738aAa3F06464B8350B', // CANA full CoinGecko ID
     },
     // Avalanche C-Chain (43114)
     43114: {

@@ -99,11 +99,14 @@ export async function getPriceFromAlchemy(
     const tokenData = data.data[0];
 
     if (tokenData.error) {
-      throw new Error(`Alchemy API error: ${tokenData.error}`);
+      const errorMsg = typeof tokenData.error === 'string'
+        ? tokenData.error
+        : JSON.stringify(tokenData.error);
+      throw new Error(`Alchemy API error: ${errorMsg}`);
     }
 
     if (!tokenData.prices || tokenData.prices.length === 0) {
-      throw new Error('No price information available from Alchemy');
+      throw new Error(`No price information available from Alchemy for ${tokenAddress}`);
     }
 
     // Get USD price

@@ -66,7 +66,7 @@ const config: KeeperConfig = {
     lenderHelper: '',
   },
 
-  // CoinGecko API Key - Optional for most tokens, but recommended for smaller tokens
+  // CoinGecko API Key - Optional, will fallback to Alchemy Prices API if not provided
   // Get a free key from https://www.coingecko.com/en/developers/dashboard
   coinGeckoApiKey: process.env.COINGECKO_API_KEY,
 

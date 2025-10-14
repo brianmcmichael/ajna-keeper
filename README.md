@@ -85,8 +85,7 @@ Then edit `.env` to add your API keys:
 - Create an account at [CoinGecko](https://www.coingecko.com/en/developers/dashboard)
 - Click "Add New Key" to generate a new API key
 - Add to `.env`: `COINGECKO_API_KEY="CG-your_key_here"`
-- **Note**: CoinGecko is optional for major tokens (WETH, USDC, etc.) as the keeper will fallback to Alchemy Prices API
-- **Required** for smaller tokens not in Alchemy's database (e.g., CANA)
+- **Note**: CoinGecko is optional as the keeper will fallback to Alchemy Prices API if CoinGecko is unavailable
 
 #### Optional API Keys
 
@@ -227,13 +226,12 @@ See `example-config.ts` for reference.
 The keeper supports multiple price sources with automatic fallback:
 
 - **[CoinGecko](https://www.coingecko.com/)** - Primary source using their [simple price](https://docs.coingecko.com/v3.0.1/reference/simple-price) API
-  - Recommended for all tokens, especially smaller/newer tokens
+  - Recommended for all tokens
   - Requires `COINGECKO_API_KEY` in `.env`
 
 - **[Alchemy Prices API](https://www.alchemy.com/docs/data/prices-api)** - Automatic fallback
   - Used automatically if CoinGecko API key is missing or CoinGecko request fails
-  - Supports major tokens (WETH, USDC, USDT, WBTC, etc.)
-  - Does not support smaller tokens (e.g., CANA)
+  - Supports a wide range of tokens (WETH, USDC, USDT, WBTC, and more)
   - No additional API key needed (uses your existing `ALCHEMY_API_KEY`)
 
 - **fixed** - Hardcoded number, useful for stable pools or testing

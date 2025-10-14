@@ -20,19 +20,19 @@ async function testAlchemyPrices() {
     const usdcPrice = await getPriceFromAlchemy(usdcAddress, chainId, rpcUrl);
     console.log(`✓ USDC Price: $${usdcPrice.toFixed(4)}\n`);
 
-    // Test 3: Get CANA price (may not be available in Alchemy)
+    // Test 3: Get CANA price
     console.log('Test 3: Fetching CANA price...');
     const canaAddress = '0x88a3548e2a662936268bFD4366e48D38183E3958';
     try {
       const canaPrice = await getPriceFromAlchemy(canaAddress, chainId, rpcUrl);
       console.log(`✓ CANA Price: $${canaPrice.toFixed(6)}\n`);
 
-      // Test 4: Get pool price (CANA/USDC) - only if CANA price is available
+      // Test 4: Get pool price (CANA/USDC)
       console.log('Test 4: Calculating CANA/USDC pool price...');
       const poolPrice = await getPoolPriceFromAlchemy(usdcAddress, canaAddress, chainId, rpcUrl);
       console.log(`✓ CANA/USDC Pool Price: ${poolPrice.toFixed(6)} USDC per CANA\n`);
     } catch (error) {
-      console.log(`⚠ CANA price not available in Alchemy (this is expected for smaller tokens)`);
+      console.log(`⚠ CANA price not currently available in Alchemy`);
       console.log(`  Will use CoinGecko for CANA price instead.\n`);
     }
 
@@ -42,8 +42,8 @@ async function testAlchemyPrices() {
     console.log(`✓ WETH/USDC Pool Price: ${poolPrice.toFixed(2)} USDC per WETH\n`);
 
     console.log('✅ All Alchemy Prices API tests passed!');
-    console.log('\nNote: For tokens not available in Alchemy (like CANA), the keeper will')
-    console.log('automatically use CoinGecko API if you provide a CoinGecko API key.');
+    console.log('\nNote: If a token is not available in Alchemy, the keeper will')
+    console.log('automatically fallback to CoinGecko API if you provide a CoinGecko API key.');
   } catch (error) {
     console.error('❌ Test failed:', error);
     process.exit(1);

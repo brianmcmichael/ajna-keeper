@@ -25,7 +25,7 @@ async function testPriceFallback() {
     console.log(`✓ WETH Price: $${wethPrice.toFixed(2)}`);
     console.log(`  (Used: ${coinGeckoApiKey && coinGeckoApiKey !== 'YOUR_COINGECKO_API_KEY_HERE' ? 'CoinGecko' : 'Alchemy fallback'})\n`);
 
-    // Test 2: CANA - Will try CoinGecko first, then Alchemy (but CANA not in Alchemy)
+    // Test 2: CANA - Will try CoinGecko first, then Alchemy fallback
     console.log('Test 2: Fetching CANA price...');
     try {
       const canaPrice = await getPriceCoinGecko(
@@ -42,10 +42,10 @@ async function testPriceFallback() {
         }
       );
       console.log(`✓ CANA Price: $${canaPrice.toFixed(6)}`);
-      console.log(`  (Used: CoinGecko - CANA not available in Alchemy)\n`);
+      console.log(`  (Used: ${coinGeckoApiKey && coinGeckoApiKey !== 'YOUR_COINGECKO_API_KEY_HERE' ? 'CoinGecko' : 'Alchemy fallback'})\n`);
     } catch (error) {
       console.log(`❌ CANA price failed: ${error}`);
-      console.log(`  You need a CoinGecko API key for CANA!\n`);
+      console.log(`  Make sure you have a valid API key!\n`);
       throw error;
     }
 
@@ -65,9 +65,9 @@ async function testPriceFallback() {
 
     console.log('✅ All price fallback tests passed!');
     console.log('\n📊 Summary:');
-    console.log('  - Well-known tokens (WETH, USDC): Available in both CoinGecko and Alchemy');
-    console.log('  - Smaller tokens (CANA): Only available in CoinGecko');
+    console.log('  - Tokens are sourced from CoinGecko or Alchemy based on availability');
     console.log('  - Fallback system: CoinGecko (if key provided) → Alchemy → Error');
+    console.log('  - Both services support a wide range of tokens');
   } catch (error) {
     console.error('\n❌ Test failed:', error);
     process.exit(1);

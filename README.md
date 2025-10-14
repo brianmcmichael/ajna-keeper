@@ -21,6 +21,23 @@ You'll need `node` and related tools (`npm`, `yarn`). This was developed with no
 
 Download node here: https://nodejs.org/en Downloading `node` also installs `npm`.
 
+#### Quick Setup (using Makefile)
+
+The easiest way to get started:
+
+```bash
+# Install yarn globally
+npm install --global yarn
+
+# Complete setup (installs dependencies, compiles contracts, creates .env)
+make setup
+
+# View all available commands
+make help
+```
+
+#### Manual Setup
+
 Install `yarn` and dependencies:
 
 ```bash
@@ -151,8 +168,38 @@ Ensure that the generated wallet is saved in the directory specified by the `kee
 
 ### Execution
 
+#### Using Makefile (Recommended)
+
+```bash
+# Start keeper with your config
+make start config.ts
+
+# Or use a specific config
+make start base-config.ts
+
+# Dry-run mode (no transactions)
+make start-dry config.ts
+
+# Alternative syntax (also works)
+make start CONFIG=config.ts
+```
+
+#### Using Yarn
+
 ```bash
 yarn start --config config.ts
+```
+
+### Common Makefile Commands
+
+```bash
+make help           # Show all available commands
+make setup          # First-time setup
+make env-check      # Verify .env configuration
+make test-unit      # Run unit tests
+make test-prices    # Test price APIs
+make keystore       # Create new keystore
+make format         # Format code
 ```
 
 ## Requirements
@@ -942,6 +989,13 @@ COINGECKO_API_KEY="your_coingecko_key"
 ### Running tests
 
 #### Unit tests
+
+Using Makefile:
+```bash
+make test-unit
+```
+
+Or using yarn:
 ```bash
 yarn unit-tests
 ```
@@ -951,13 +1005,23 @@ yarn unit-tests
 In one terminal run:
 
 ```bash
-npx hardhat node
+make fork-base
+# Or: npx hardhat node
 ```
 
 In a second terminal run:
 
 ```bash
-yarn integration-tests
+make test-integration
+# Or: yarn integration-tests
+```
+
+#### Price API tests
+
+Test the Alchemy and CoinGecko price integrations:
+
+```bash
+make test-prices
 ```
 
 ## Disclaimer

@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { FeeAmount } from '@uniswap/v3-sdk';
 import {
   KeeperConfig,
@@ -14,15 +15,14 @@ const config: KeeperConfig = {
   dryRun: true,
   logLevel: 'debug',
 
-  // Base Chain RPC - Replace YOUR_API_KEY with your Alchemy API key
-  ethRpcUrl: 'https://base-mainnet.g.alchemy.com/v2/YOUR_ALCHEMY_API_KEY',
+  // Base Chain RPC - Uses Alchemy API key from .env file
+  ethRpcUrl: `https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
 
-  // Subgraph URL - You'll need to deploy this on Goldsky or use a hosted version
-  // For now, this is a placeholder - see production_setup_guide.md for setup
-  subgraphUrl: 'https://api.goldsky.com/api/public/project_YOUR_PROJECT/subgraphs/ajna-base/1.0.0/gn',
+  // Subgraph URL - The Graph gateway (requires API key from https://thegraph.com/studio/)
+  subgraphUrl: `https://gateway.thegraph.com/api/${process.env.GRAPH_API_KEY}/subgraphs/id/9npza28cZyi8R94SJjm9Y3fuWeBZZK4CHr2r8NCvsr98`,
 
-  // Keystore path - will be created in next step
-  keeperKeystore: '/home/bmc/Projects/ajna-keeper/keystore.json',
+  // Keystore path - update to your keystore location
+  keeperKeystore: '/path/to/your/keystore.json',
 
   // Base Chain Multicall
   multicallAddress: '0xcA11bde05977b3631167028862bE2a173976CA11',
@@ -66,8 +66,9 @@ const config: KeeperConfig = {
     lenderHelper: '',
   },
 
-  // CoinGecko API Key - Add your key to .env file
-  coinGeckoApiKey: process.env.COINGECKO_API_KEY || 'YOUR_COINGECKO_API_KEY',
+  // CoinGecko API Key - Optional for most tokens, but recommended for smaller tokens
+  // Get a free key from https://www.coingecko.com/en/developers/dashboard
+  coinGeckoApiKey: process.env.COINGECKO_API_KEY,
 
   // Pool configurations - Example pools on Base
   pools: [

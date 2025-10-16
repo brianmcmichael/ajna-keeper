@@ -287,6 +287,8 @@ export interface KeeperConfig {
   tokenAddresses?: { [tokenSymbol: string]: string };
   /** Optional list of token addresses used as intermediate connectors in 1inch swap routes */
   connectorTokens?: Array<string>;
+  /** Minimum delay between consecutive 1inch API calls in milliseconds (default: 1000ms) */
+  minDelayBetweenOneInchCalls?: number;
   /** Uniswap Universal Router for Uni v3 */
   universalRouterOverrides?: UniversalRouterOverrides;
   /** SushiSwap configuration for post-auction swaps */

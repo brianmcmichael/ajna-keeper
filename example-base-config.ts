@@ -43,6 +43,10 @@ const config: KeeperConfig = {
     usdc: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
   },
 
+  // 1inch API rate limiting (milliseconds between API calls)
+  // Set to 1000ms (1 second) to comply with 1inch API rate limits
+  minDelayBetweenOneInchCalls: 1000,
+
   // Universal Router configuration for Uniswap V3 on Base
   universalRouterOverrides: {
     universalRouterAddress: '0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD',

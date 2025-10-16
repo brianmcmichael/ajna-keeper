@@ -833,7 +833,8 @@ async function takeWithCurveFactory({
 
     // FIXED: Use existing DexRouter logic for pool discovery
     const dexRouter = new DexRouter(signer, {
-      tokenAddresses: config.tokenAddresses || {}
+      tokenAddresses: config.tokenAddresses || {},
+      minDelayBetweenOneInchCalls: 1000 // Not used in this context, but included for consistency
     });
     
     const selectedPoolConfig = dexRouter.getCurvePoolForTokenPair(

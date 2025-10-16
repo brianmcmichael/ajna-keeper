@@ -17,6 +17,8 @@ export class DexRouter {
   private oneInchRouters: { [chainId: number]: string };
   private connectorTokens: string;
   private tokenAddresses: { [symbol: string]: string }; // CURVE INTEGRATION: Added for symbol lookup
+  private lastOneInchCallTime: number = 0;
+  private minDelayBetweenOneInchCalls: number;
 
   constructor(
     signer: Signer,
@@ -24,6 +26,7 @@ export class DexRouter {
       oneInchRouters?: { [chainId: number]: string };
       connectorTokens?: Array<string>;
       tokenAddresses?: { [symbol: string]: string }; // CURVE INTEGRATION: Added tokenAddresses
+      minDelayBetweenOneInchCalls?: number; // Minimum milliseconds between 1inch API calls (default: 1000ms)
     } = {}
   ) {
     if (!signer) logger.error('Signer is required');
@@ -35,10 +38,28 @@ export class DexRouter {
       ? options.connectorTokens.join(',')
       : '';
     this.tokenAddresses = options.tokenAddresses || {}; // CURVE INTEGRATION: Store tokenAddresses
+    this.minDelayBetweenOneInchCalls = options.minDelayBetweenOneInchCalls ?? 1000; // Default to 1 second
   }
 
   public getRouter(chainId: number): string | undefined {
     return this.oneInchRouters[chainId];
+  }
+
+  /**
+   * Enforces rate limiting for 1inch API calls.
+   * Ensures minimum delay between consecutive calls to prevent hitting rate limits.
+   */
+  private async enforceOneInchRateLimit(): Promise<void> {
+    const now = Date.now();
+    const timeSinceLastCall = now - this.lastOneInchCallTime;
+
+    if (timeSinceLastCall < this.minDelayBetweenOneInchCalls) {
+      const waitTime = this.minDelayBetweenOneInchCalls - timeSinceLastCall;
+      logger.debug(`Rate limiting: waiting ${waitTime}ms before next 1inch API call`);
+      await new Promise((resolve) => setTimeout(resolve, waitTime));
+    }
+
+    this.lastOneInchCallTime = Date.now();
   }
 
   public async getQuoteFromOneInch(
@@ -47,6 +68,9 @@ export class DexRouter {
     tokenIn: string,
     tokenOut: string
   ): Promise<{ success: boolean; dstAmount?: string; error?: string }> {
+    // Enforce rate limiting before making API call
+    await this.enforceOneInchRateLimit();
+
     const url = `${process.env.ONEINCH_API}/${chainId}/quote`;
 
     const params: {
@@ -95,6 +119,9 @@ export class DexRouter {
     fromAddress: string,
     usePatching: boolean = false,
   ) : Promise<{ success: boolean; data?: any; error?: string }> {
+    // Enforce rate limiting before making API call
+    await this.enforceOneInchRateLimit();
+
     const url = `${process.env.ONEINCH_API}/${chainId}/swap`;
     const params: {
       fromTokenAddress: string;

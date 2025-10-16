@@ -230,7 +230,8 @@ async function collectLpRewardsLoop({
   const dexRouter = new DexRouter(signer, {
     oneInchRouters: config?.oneInchRouters ?? {},
     connectorTokens: config?.connectorTokens ?? [],
-    tokenAddresses: config.tokenAddresses
+    tokenAddresses: config.tokenAddresses,
+    minDelayBetweenOneInchCalls: config?.minDelayBetweenOneInchCalls
   });
   const exchangeTracker = new RewardActionTracker(
   signer,

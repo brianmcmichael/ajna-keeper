@@ -24,6 +24,7 @@ interface DeploymentAddresses {
   uniswapTaker?: string;
   sushiTaker?: string;
   curveTaker?: string;
+  aerodromeTaker?: string;
   // Future: uniswapV4, pancakeswap, balancer, izumi, etc.
 }
 
@@ -342,16 +343,57 @@ async function deployCurveKeeperTaker(
   return taker.address;
 }
 
+async function deployAerodromeKeeperTaker(
+  deployer: ethers.Wallet,
+  ajnaPoolFactory: string,
+  factoryAddress: string,
+  chainId: number
+): Promise<string> {
+  console.log('\n📦 Step 2d: Deploying AerodromeKeeperTaker...');
+
+  const takerArtifactPath = path.join(__dirname, '..', 'artifacts', 'contracts', 'takers', 'AerodromeKeeperTaker.sol', 'AerodromeKeeperTaker.json');
+  const takerArtifact = require(takerArtifactPath);
+
+  const AerodromeKeeperTaker = new ethers.ContractFactory(
+    takerArtifact.abi,
+    takerArtifact.bytecode,
+    deployer
+  );
+
+  // Get gas configuration
+  const gasConfig = getGasConfig(chainId);
+  const deployOptions: any = {
+    gasLimit: gasConfig.gasLimit,
+  };
+
+  if (gasConfig.gasPrice) {
+    deployOptions.gasPrice = gasConfig.gasPrice;
+  }
+
+  // Deploy with factory authorization
+  const taker = await AerodromeKeeperTaker.deploy(
+    ajnaPoolFactory,  // Ajna pool factory
+    factoryAddress,   // Authorized factory
+    deployOptions
+  );
+
+  console.log('✅ Aerodrome taker deployment tx:', taker.deployTransaction.hash);
+  await taker.deployed();
+  console.log('🎉 AerodromeKeeperTaker deployed to:', taker.address);
+
+  return taker.address;
+}
+
 async function configureFactory(
   deployer: ethers.Wallet,
   factoryAddress: string,
   addresses: DeploymentAddresses
 ): Promise<void> {
   console.log('\n⚙️  Step 3: Configuring factory with takers...');
-  
+
   const factoryArtifact = require(path.join(__dirname, '..', 'artifacts', 'contracts', 'factories', 'AjnaKeeperTakerFactory.sol', 'AjnaKeeperTakerFactory.json'));
   const factory = new ethers.Contract(factoryAddress, factoryArtifact.abi, deployer);
- 
+
   // Register UniswapV3 taker (LiquiditySource.UNISWAPV3 = 2)
   if (addresses.uniswapTaker) {
     const setUniTakerTx = await factory.setTaker(2, addresses.uniswapTaker);
@@ -359,7 +401,7 @@ async function configureFactory(
     await setUniTakerTx.wait();
     console.log('🎉 Factory configured with UniswapV3 taker');
   }
-  
+
   // Register SushiSwap taker (LiquiditySource.SUSHISWAP = 3)
   if (addresses.sushiTaker) {
     const setSushiTakerTx = await factory.setTaker(3, addresses.sushiTaker);
@@ -374,6 +416,14 @@ async function configureFactory(
     console.log('✅ Curve configuration tx:', setCurveTakerTx.hash);
     await setCurveTakerTx.wait();
     console.log('🎉 Factory configured with Curve taker');
+  }
+
+  // Register Aerodrome taker (LiquiditySource.AERODROME = 5)
+  if (addresses.aerodromeTaker) {
+    const setAerodromeTakerTx = await factory.setTaker(5, addresses.aerodromeTaker);
+    console.log('✅ Aerodrome configuration tx:', setAerodromeTakerTx.hash);
+    await setAerodromeTakerTx.wait();
+    console.log('🎉 Factory configured with Aerodrome taker');
   }
   // ADD DELAY AFTER CONFIGURATION
   await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
@@ -448,16 +498,19 @@ function generateConfigUpdate(
     console.log(`keeperTakerFactory: '${addresses.factory}',`);
   }
   
-  if (addresses.uniswapTaker || addresses.sushiTaker || addresses.curveTaker) {
+  if (addresses.uniswapTaker || addresses.sushiTaker || addresses.curveTaker || addresses.aerodromeTaker) {
     console.log('takerContracts: {');
     if (addresses.uniswapTaker) {
       console.log(`  'UniswapV3': '${addresses.uniswapTaker}',`);
     }
     if (addresses.sushiTaker) {
-      console.log(`  'SushiSwap': '${addresses.sushiTaker}'`);
+      console.log(`  'SushiSwap': '${addresses.sushiTaker}',`);
     }
     if (addresses.curveTaker) {
-    console.log(`  'Curve': '${addresses.curveTaker}',`);
+      console.log(`  'Curve': '${addresses.curveTaker}',`);
+    }
+    if (addresses.aerodromeTaker) {
+      console.log(`  'Aerodrome': '${addresses.aerodromeTaker}',`);
     }
     console.log('},');
   }
@@ -472,6 +525,12 @@ function generateConfigUpdate(
   }
   if (addresses.sushiTaker) {
     console.log(`🍣 SushiSwapKeeperTaker: ${addresses.sushiTaker}`);
+  }
+  if (addresses.curveTaker) {
+    console.log(`📊 CurveKeeperTaker: ${addresses.curveTaker}`);
+  }
+  if (addresses.aerodromeTaker) {
+    console.log(`✈️  AerodromeKeeperTaker: ${addresses.aerodromeTaker}`);
   }
   
   console.log('\n🚀 Next Steps:');
@@ -588,6 +647,18 @@ async function main() {
       );
     // ADD DELAY AFTER CURVE DEPLOYMENT
     await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
+    }
+
+    // Deploy Aerodrome taker if configured
+    if (config.aerodromeRouterOverrides) {
+      addresses.aerodromeTaker = await deployAerodromeKeeperTaker(
+        deployer,
+        config.ajna.erc20PoolFactory,
+        addresses.factory,
+        chainInfo.chainId
+      );
+      // ADD DELAY AFTER AERODROME DEPLOYMENT
+      await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
     }
     // ADD DELAY BEFORE CONFIGURATION
     console.log('\n⏳ Waiting before configuration...');

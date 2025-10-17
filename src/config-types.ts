@@ -92,6 +92,7 @@ export enum LiquiditySource {
   UNISWAPV3 = 2, // use Uniswap V3 via Universal Router
   SUSHISWAP = 3, // SushiSwap integration
   CURVE = 4,     // CURVE INTEGRATION: Added Curve support
+  AERODROME = 5, // AERODROME INTEGRATION: V2-style DEX with volatile/stable pools
 }
 
 // CURVE INTEGRATION: New enum for pool type selection
@@ -136,11 +137,12 @@ export enum RewardActionLabel {
 //PostAuctionDex enum for scalable DEX selection
 export enum PostAuctionDex {
   ONEINCH = 'oneinch',
-  UNISWAP_V3 = 'uniswap_v3', 
+  UNISWAP_V3 = 'uniswap_v3',
   SUSHISWAP = 'sushiswap',
   CURVE = 'curve',           // CURVE INTEGRATION: Added Curve for post-auction swaps
+  AERODROME = 'aerodrome',   // AERODROME INTEGRATION: V2-style DEX for Base network
   // Future additions:
-  // IZUMI = 'izumi', 
+  // IZUMI = 'izumi',
   // BALANCER = 'balancer',
   // DODO = 'dodo'
 }
@@ -243,7 +245,21 @@ export interface CurveRouterOverrides {
   /** Default slippage percentage for Curve swaps (default: 1.0%) */
   defaultSlippage?: number;
   /** WETH address for ETH/WETH conversion in pool lookups */
-  wethAddress?: string; 
+  wethAddress?: string;
+}
+
+// AERODROME INTEGRATION: Configuration interface for Aerodrome Finance
+export interface AerodromeRouterOverrides {
+  /** Aerodrome Router address (handles both quoting and swapping) */
+  routerAddress?: string;
+  /** Factory address for pool lookup and validation */
+  factoryAddress?: string;
+  /** WETH address for ETH/WETH handling */
+  wethAddress?: string;
+  /** Default slippage percentage for swaps (default: 0.5%) */
+  defaultSlippage?: number;
+  /** Default pool type - stable (for correlated assets) or volatile (for uncorrelated) */
+  defaultPoolType?: 'stable' | 'volatile';
 }
 
 export interface KeeperConfig {
@@ -295,6 +311,8 @@ export interface KeeperConfig {
   sushiswapRouterOverrides?: SushiswapRouterOverrides;
   /** CURVE INTEGRATION: Curve configuration for post-auction swaps */
   curveRouterOverrides?: CurveRouterOverrides;
+  /** AERODROME INTEGRATION: Aerodrome configuration for swaps on Base network */
+  aerodromeRouterOverrides?: AerodromeRouterOverrides;
 }
 
 // Validation function for PostAuctionDex configuration
@@ -319,6 +337,12 @@ export function validatePostAuctionDex(dexProvider: PostAuctionDex, config: Keep
     case PostAuctionDex.CURVE:
       if (!config.curveRouterOverrides) {
         throw new Error('PostAuctionDex.CURVE requires curveRouterOverrides configuration');
+      }
+      break;
+    // AERODROME INTEGRATION: Added validation case for Aerodrome
+    case PostAuctionDex.AERODROME:
+      if (!config.aerodromeRouterOverrides) {
+        throw new Error('PostAuctionDex.AERODROME requires aerodromeRouterOverrides configuration');
       }
       break;
     default:
@@ -417,8 +441,9 @@ export function validateTakeSettings(config: TakeSettings, keeperConfig: KeeperC
     if (config.liquiditySource !== LiquiditySource.ONEINCH &&
         config.liquiditySource !== LiquiditySource.UNISWAPV3 &&
         config.liquiditySource !== LiquiditySource.SUSHISWAP &&
-        config.liquiditySource !== LiquiditySource.CURVE) {  // CURVE INTEGRATION: Added CURVE to validation
-      throw new Error('TakeSettings: liquiditySource must be ONEINCH or UNISWAPV3 or SUSHISWAP or CURVE');
+        config.liquiditySource !== LiquiditySource.CURVE &&
+        config.liquiditySource !== LiquiditySource.AERODROME) {  // AERODROME INTEGRATION: Added to validation
+      throw new Error('TakeSettings: liquiditySource must be ONEINCH, UNISWAPV3, SUSHISWAP, CURVE, or AERODROME');
     }
 
     if (config.marketPriceFactor === undefined || config.marketPriceFactor <= 0) {
@@ -460,6 +485,13 @@ export function validateTakeSettings(config: TakeSettings, keeperConfig: KeeperC
     if (config.liquiditySource === LiquiditySource.CURVE) {
       if (!keeperConfig.curveRouterOverrides) {
         throw new Error('TakeSettings: curveRouterOverrides required when liquiditySource is CURVE');
+      }
+    }
+
+    // AERODROME INTEGRATION: Added validation for Aerodrome
+    if (config.liquiditySource === LiquiditySource.AERODROME) {
+      if (!keeperConfig.aerodromeRouterOverrides) {
+        throw new Error('TakeSettings: aerodromeRouterOverrides required when liquiditySource is AERODROME');
       }
     }
   }

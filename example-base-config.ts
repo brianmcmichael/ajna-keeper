@@ -58,6 +58,16 @@ const config: KeeperConfig = {
     defaultSlippage: 0.5,      // 0.5% slippage
   },
 
+  // Aerodrome Finance configuration (V2-style DEX on Base)
+  // Aerodrome is a fork of Velodrome with both stable and volatile pools
+  aerodromeRouterOverrides: {
+    routerAddress: '0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43',  // Aerodrome Router
+    factoryAddress: '0x420DD381b31aEf6683db6B902084cB0FFECe40Da', // Aerodrome Factory
+    wethAddress: '0x4200000000000000000000000000000000000006',   // WETH on Base
+    defaultSlippage: 0.5,      // 0.5% slippage
+    // defaultPoolType: 'volatile',  // Optional: specify 'stable' or 'volatile', or leave unset to auto-detect
+  },
+
   // Ajna contract addresses on Base
   ajna: {
     erc20PoolFactory: '0x214f62B5836D83f3D6c4f71F174209097B1A779C',
@@ -151,6 +161,9 @@ const config: KeeperConfig = {
       take: {
         minCollateral: 0.01,
         hpbPriceFactor: 0.9,
+        // Example: Enable Aerodrome for external takes
+        // liquiditySource: LiquiditySource.AERODROME,
+        // marketPriceFactor: 0.98,  // Take if auction price <= 98% of market price
       },
       collectBond: true,
       collectLpReward: {

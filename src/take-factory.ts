@@ -32,6 +32,7 @@ interface FactoryTakeParams {
     | 'universalRouterOverrides'
     | 'sushiswapRouterOverrides'
     | 'curveRouterOverrides'
+    | 'aerodromeRouterOverrides'
     | 'tokenAddresses'
   >;
 }
@@ -175,7 +176,7 @@ async function checkIfTakeableFactory(
   price: number,
   collateral: BigNumber,
   poolConfig: RequireFields<PoolConfig, 'take'>,
-  config: Pick<FactoryTakeParams['config'], 'universalRouterOverrides' | 'sushiswapRouterOverrides' | 'curveRouterOverrides'  >,
+  config: Pick<FactoryTakeParams['config'], 'universalRouterOverrides' | 'sushiswapRouterOverrides' | 'curveRouterOverrides' | 'aerodromeRouterOverrides'  >,
   signer: Signer
 ): Promise<boolean> {
   
@@ -197,6 +198,9 @@ async function checkIfTakeableFactory(
     }
     if (poolConfig.take.liquiditySource === LiquiditySource.CURVE) {
       return await checkCurveQuote(pool, price, collateral, poolConfig, config, signer);
+    }
+    if (poolConfig.take.liquiditySource === LiquiditySource.AERODROME) {
+      return await checkAerodromeQuote(pool, price, collateral, poolConfig, config, signer);
     }
 
     // Future: Add other DEX sources here
@@ -507,6 +511,103 @@ async function checkCurveQuote(
 }
 
 /**
+ * Check Aerodrome profitability using AerodromeQuoteProvider
+ */
+async function checkAerodromeQuote(
+  pool: FungiblePool,
+  auctionPrice: number,
+  collateral: BigNumber,
+  poolConfig: RequireFields<PoolConfig, 'take'>,
+  config: Pick<FactoryTakeParams['config'], 'aerodromeRouterOverrides'>,
+  signer: Signer
+): Promise<boolean> {
+
+  if (!config.aerodromeRouterOverrides) {
+    logger.debug(`Factory: No aerodromeRouterOverrides configured for pool ${pool.name}`);
+    return false;
+  }
+
+  const aerodromeConfig = config.aerodromeRouterOverrides;
+
+  // Validate required configuration
+  if (!aerodromeConfig.routerAddress || !aerodromeConfig.factoryAddress || !aerodromeConfig.wethAddress) {
+    logger.debug(`Factory: Missing required Aerodrome configuration for pool ${pool.name}`);
+    return false;
+  }
+
+  try {
+    // Import AerodromeQuoteProvider dynamically
+    const { AerodromeQuoteProvider } = await import('./dex-providers/aerodrome-quote-provider');
+
+    // Create Aerodrome quote provider
+    const quoteProvider = new AerodromeQuoteProvider(signer, {
+      routerAddress: aerodromeConfig.routerAddress,
+      factoryAddress: aerodromeConfig.factoryAddress,
+      wethAddress: aerodromeConfig.wethAddress,
+      defaultPoolType: aerodromeConfig.defaultPoolType,
+    });
+
+    // Initialize and check availability
+    const initialized = await quoteProvider.initialize();
+    if (!initialized) {
+      logger.debug(`Factory: Aerodrome quote provider not available for pool ${pool.name}`);
+      return false;
+    }
+
+    // Get token decimals for proper formatting
+    const collateralDecimals = await getDecimalsErc20(signer, pool.collateralAddress);
+    const quoteDecimals = await getDecimalsErc20(signer, pool.quoteAddress);
+    const collateralInTokenDecimals = convertWadToTokenDecimals(collateral, collateralDecimals);
+
+    // Get official quote from Aerodrome router contract
+    logger.debug(`Factory: Getting Aerodrome quote for ${ethers.utils.formatUnits(collateralInTokenDecimals, collateralDecimals)} collateral in pool ${pool.name}`);
+
+    const quoteResult = await quoteProvider.getQuote(
+      collateralInTokenDecimals,
+      pool.collateralAddress,
+      pool.quoteAddress,
+      aerodromeConfig.defaultPoolType
+    );
+
+    if (!quoteResult.success || !quoteResult.dstAmount) {
+      logger.debug(`Factory: Failed to get Aerodrome quote for pool ${pool.name}: ${quoteResult.error}`);
+      return false;
+    }
+
+    // Calculate actual market price from the official quote
+    const collateralAmount = Number(ethers.utils.formatUnits(collateralInTokenDecimals, collateralDecimals));
+    const quoteAmount = Number(ethers.utils.formatUnits(quoteResult.dstAmount, quoteDecimals));
+
+    if (collateralAmount <= 0 || quoteAmount <= 0) {
+      logger.debug(`Factory: Invalid amounts - collateral: ${collateralAmount}, quote: ${quoteAmount} for pool ${pool.name}`);
+      return false;
+    }
+
+    // Market price = quoteAmount / collateralAmount (quote tokens per collateral token)
+    const marketPrice = quoteAmount / collateralAmount;
+
+    const marketPriceFactor = poolConfig.take.marketPriceFactor;
+    if (!marketPriceFactor) {
+      logger.debug(`Factory: No marketPriceFactor configured for pool ${pool.name}`);
+      return false;
+    }
+
+    // Calculate the maximum price we're willing to pay (including slippage/profit margin)
+    const takeablePrice = marketPrice * marketPriceFactor;
+
+    const profitable = auctionPrice <= takeablePrice;
+
+    logger.debug(`Aerodrome price check: pool=${pool.name}, auction=${auctionPrice.toFixed(4)}, market=${marketPrice.toFixed(4)}, takeable=${takeablePrice.toFixed(4)}, profitable=${profitable}, poolType=${quoteResult.poolType}`);
+
+    return profitable;
+
+  } catch (error) {
+    logger.error(`Factory: Error getting Aerodrome quote for pool ${pool.name}: ${error}`);
+    return false;
+  }
+}
+
+/**
  * ArbTake check (same logic as existing, copied to avoid dependencies)
  */
 async function checkIfArbTakeableFactory(
@@ -603,6 +704,14 @@ async function takeLiquidationFactory({
   });
   } else if (poolConfig.take.liquiditySource === LiquiditySource.CURVE) {
   await takeWithCurveFactory({
+    pool,
+    poolConfig,
+    signer,
+    liquidation,
+    config,
+  });
+  } else if (poolConfig.take.liquiditySource === LiquiditySource.AERODROME) {
+  await takeWithAerodromeFactory({
     pool,
     poolConfig,
     signer,
@@ -930,6 +1039,115 @@ async function takeWithCurveFactory({
   }
 }
 
+
+/**
+ * Execute Aerodrome take via factory
+ * Aerodrome is a V2-style DEX with stable and volatile pools
+ */
+async function takeWithAerodromeFactory({
+  pool,
+  poolConfig,
+  signer,
+  liquidation,
+  config,
+}: {
+  pool: FungiblePool;
+  poolConfig: RequireFields<PoolConfig, 'take'>;
+  signer: Signer;
+  liquidation: LiquidationToTake;
+  config: Pick<FactoryTakeParams['config'], 'keeperTakerFactory' | 'aerodromeRouterOverrides'>;
+}) {
+
+  const factory = AjnaKeeperTakerFactory__factory.connect(config.keeperTakerFactory!, signer);
+
+  if (!config.aerodromeRouterOverrides) {
+    logger.error('Factory: aerodromeRouterOverrides required for Aerodrome takes');
+    return;
+  }
+
+  // Store config in local variable after null check for type safety
+  const aerodromeConfig = config.aerodromeRouterOverrides;
+
+  try {
+    // Import AerodromeQuoteProvider to detect pool type
+    const { AerodromeQuoteProvider } = await import('./dex-providers/aerodrome-quote-provider');
+
+    // Create quote provider to detect which pool exists (stable or volatile)
+    const quoteProvider = new AerodromeQuoteProvider(signer, {
+      routerAddress: aerodromeConfig.routerAddress!,
+      factoryAddress: aerodromeConfig.factoryAddress!,
+      wethAddress: aerodromeConfig.wethAddress!,
+      defaultPoolType: aerodromeConfig.defaultPoolType,
+    });
+
+    await quoteProvider.initialize();
+
+    // Check which pool exists and get pool type
+    const poolInfo = await quoteProvider.poolExists(
+      pool.collateralAddress,
+      pool.quoteAddress,
+      aerodromeConfig.defaultPoolType
+    );
+
+    if (!poolInfo.exists) {
+      logger.error(`Factory: No Aerodrome pool found for ${pool.collateralAddress}/${pool.quoteAddress}`);
+      return;
+    }
+
+    const isStable = poolInfo.isStable!;
+    const poolAddress = poolInfo.poolAddress!;
+
+    logger.debug(`Factory: Found Aerodrome ${isStable ? 'stable' : 'volatile'} pool at ${poolAddress}`);
+
+    // Use minimal amountOutMinimum - let Ajna's liquidation contract enforce actual requirements
+    const minimalAmountOut = ethers.BigNumber.from(1); // 1 wei - trust Ajna liquidation contract
+
+    logger.debug(
+      `Factory: Executing Aerodrome take for pool ${pool.name}:\n` +
+      `  Router: ${aerodromeConfig.routerAddress}\n` +
+      `  Factory: ${aerodromeConfig.factoryAddress}\n` +
+      `  Pool Type: ${isStable ? 'stable' : 'volatile'}\n` +
+      `  Pool Address: ${poolAddress}\n` +
+      `  Collateral (WAD): ${liquidation.collateral.toString()}\n` +
+      `  Auction Price (WAD): ${liquidation.auctionPrice.toString()}\n` +
+      `  Minimal Amount Out: ${minimalAmountOut.toString()} (let Ajna enforce)`
+    );
+
+    // Encode Aerodrome swap details:
+    // (address factory, bool stable, uint256 amountOutMinimum, uint256 deadline)
+    const encodedSwapDetails = ethers.utils.defaultAbiCoder.encode(
+      ['address', 'bool', 'uint256', 'uint256'],
+      [
+        aerodromeConfig.factoryAddress,  // Aerodrome factory address
+        isStable,                        // Pool type (stable or volatile)
+        minimalAmountOut,                // Minimal amount out
+        Math.floor(Date.now() / 1000) + 1800  // 30 minutes deadline
+      ]
+    );
+
+    logger.debug(`Factory: Sending Aerodrome Take Tx - poolAddress: ${pool.poolAddress}, borrower: ${liquidation.borrower}`);
+
+    await NonceTracker.queueTransaction(signer, async (nonce: number) => {
+      // Send WAD amounts directly - no decimal pre-conversion (follows standard pattern)
+      const tx = await factory.takeWithAtomicSwap(
+        pool.poolAddress,
+        liquidation.borrower,
+        liquidation.auctionPrice,  // WAD amount
+        liquidation.collateral,    // WAD amount
+        Number(poolConfig.take.liquiditySource), // LiquiditySource.AERODROME = 5
+        aerodromeConfig.routerAddress!, // swapRouter parameter (Aerodrome router address)
+        encodedSwapDetails,
+        { nonce: nonce.toString() }
+      );
+      return await tx.wait();
+    });
+
+    logger.info(`Factory Aerodrome Take successful - poolAddress: ${pool.poolAddress}, borrower: ${liquidation.borrower}, poolType: ${isStable ? 'stable' : 'volatile'}`);
+
+  } catch (error) {
+    logger.error(`Factory: Failed to Aerodrome Take. pool: ${pool.name}, borrower: ${liquidation.borrower}`, error);
+  }
+}
 
 /**
  * ArbTake using existing logic (same as original)

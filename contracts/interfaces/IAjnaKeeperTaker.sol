@@ -12,8 +12,9 @@ interface IAjnaKeeperTaker is IERC20Taker {
         None,      // (do not use)
         OneInch,   // Use 1inch for swaps
         UniswapV3, // Use Uniswap V3 Universal Router
-        SushiSwap, // Future: SushiSwap integration
-        Curve      // Future: Curve integration
+        SushiSwap, // SushiSwap V3 integration
+        Curve,     // Curve stable/crypto pools integration
+        Aerodrome  // Aerodrome Finance (V2-style DEX on Base)
     }
 
     /// @notice Called by keeper to invoke `Pool.take`, passing `IERC20Taker` callback data.

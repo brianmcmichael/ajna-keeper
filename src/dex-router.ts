@@ -9,6 +9,7 @@ import { tokenChangeDecimals } from './utils';
 import { swapWithUniversalRouter } from './universal-router-module';
 import { swapWithSushiswapRouter } from './sushiswap-router-module';
 import { swapWithCurveRouter } from './curve-router-module';
+import { swapWithAerodromeRouter } from './aerodrome-router-module';
 import { NonceTracker } from './nonce';
 import { PostAuctionDex, CurvePoolType } from './config-types';
 
@@ -386,35 +387,35 @@ export class DexRouter {
     curveSettings?: any,
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      
+
       if (!curveSettings) {
         return {
           success: false,
           error: 'Curve configuration not found'
         };
       }
-      
+
       if (!curveSettings.poolConfigs) {
         return {
           success: false,
           error: 'Curve pool configurations not found'
         };
       }
-      
+
       // SIMPLIFIED: Use the new token pair lookup
       const poolConfig = this.getCurvePoolForTokenPair(
-        tokenIn, 
-        tokenOut, 
+        tokenIn,
+        tokenOut,
         curveSettings.poolConfigs
       );
-      
+
       if (!poolConfig) {
         return {
           success: false,
           error: `No Curve pool configured for ${tokenIn}/${tokenOut}`
         };
       }
-      
+
       const result = await swapWithCurveRouter(
         this.signer,
         tokenIn,
@@ -425,12 +426,66 @@ export class DexRouter {
         poolConfig.poolType,
         curveSettings.defaultSlippage
       );
-      
+
       return result;
     } catch (error) {
       return {
         success: false,
         error: `Curve swap failed: ${error}`
+      };
+    }
+  }
+
+  // AERODROME INTEGRATION: Aerodrome swap method for Base network
+  private async swapWithAerodrome(
+    chainId: number,
+    amount: BigNumber,
+    tokenIn: string,
+    tokenOut: string,
+    to: string,
+    slippage: number,
+    feeAmount?: number,
+    aerodromeSettings?: any,
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+
+      if (!aerodromeSettings) {
+        return {
+          success: false,
+          error: 'Aerodrome configuration not found'
+        };
+      }
+
+      if (!aerodromeSettings.routerAddress) {
+        return {
+          success: false,
+          error: 'Aerodrome router address not configured'
+        };
+      }
+
+      if (!aerodromeSettings.factoryAddress) {
+        return {
+          success: false,
+          error: 'Aerodrome factory address not configured'
+        };
+      }
+
+      const result = await swapWithAerodromeRouter(
+        this.signer,
+        tokenIn,
+        amount,
+        tokenOut,
+        slippage,
+        aerodromeSettings.routerAddress,
+        aerodromeSettings.factoryAddress,
+        aerodromeSettings.defaultPoolType
+      );
+
+      return result;
+    } catch (error) {
+      return {
+        success: false,
+        error: `Aerodrome swap failed: ${error}`
       };
     }
   }
@@ -444,9 +499,9 @@ export class DexRouter {
     dexProvider: PostAuctionDex,
     slippage: number = 1,
     feeAmount: number = 3000,
-    combinedSettings?: { 
+    combinedSettings?: {
       uniswap?: {
-        wethAddress?: string; 
+        wethAddress?: string;
         uniswapV3Router?: string;
         universalRouterAddress?: string;
         permit2Address?: string;
@@ -464,6 +519,13 @@ export class DexRouter {
         };
         defaultSlippage?: number;
         wethAddress?: string;
+      };
+      aerodrome?: {
+        routerAddress?: string;
+        factoryAddress?: string;
+        wethAddress?: string;
+        defaultSlippage?: number;
+        defaultPoolType?: 'stable' | 'volatile';
       };
     }
   ): Promise<{ success: boolean; error?: string }> {
@@ -609,6 +671,19 @@ export class DexRouter {
           slippage,
           feeAmount,
           combinedSettings?.curve
+        );
+
+      case PostAuctionDex.AERODROME:
+        // AERODROME INTEGRATION: New case for Aerodrome post-auction swaps on Base
+        return await this.swapWithAerodrome(
+          chainId,
+          adjustedAmount,
+          tokenIn,
+          tokenOut,
+          to,
+          slippage,
+          feeAmount,
+          combinedSettings?.aerodrome
         );
 
       default:

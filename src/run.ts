@@ -14,6 +14,7 @@ import { logger } from './logging';
 import { RewardActionTracker } from './reward-action-tracker';
 import { DexRouter } from './dex-router';
 import { handleSettlements, tryReactiveSettlement } from './settlement';
+import { updatePoolInterestIfStale } from './pool-interest';
 
 type PoolMap = Map<string, FungiblePool>;
 
@@ -68,6 +69,9 @@ async function kickPoolsLoop({ poolMap, config, signer, chainId }: KeepPoolParam
     for (const poolConfig of poolsWithKickSettings) {
       const pool = poolMap.get(poolConfig.address)!;
       try {
+        // Update interest if stale (>1 week) before checking TP/LUP
+        await updatePoolInterestIfStale(pool, signer, config.dryRun);
+
         await handleKicks({
           pool,
           poolConfig,
@@ -96,6 +100,9 @@ async function takePoolsLoop({ poolMap, config, signer }: KeepPoolParams) {
     for (const poolConfig of poolsWithTakeSettings) {
       const pool = poolMap.get(poolConfig.address)!;
       try {
+        // Update interest if stale (>1 week) before checking liquidations
+        await updatePoolInterestIfStale(pool, signer, config.dryRun);
+
         validateTakeSettings(poolConfig.take, config);
         await handleTakes({
           pool,
@@ -163,7 +170,10 @@ async function settlementLoop({ poolMap, config, signer }: KeepPoolParams) {
         const pool = poolMap.get(poolConfig.address)!;
         try {
           logger.debug(`Processing settlement check for pool: ${pool.name}`);
-          
+
+          // Update interest if stale (>1 week) before checking settlements
+          await updatePoolInterestIfStale(pool, signer, config.dryRun);
+
           await handleSettlements({
             pool,
             poolConfig: poolConfig as RequireFields<PoolConfig, 'settlement'>,

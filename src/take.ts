@@ -1,5 +1,5 @@
 import { Signer, FungiblePool } from '@ajna-finance/sdk';
-import subgraph from './subgraph';
+import subgraph, { PoolSnapshot, PoolSnapshotBucket } from './subgraph';
 import { decimaledToWei, delay, RequireFields, weiToDecimaled } from './utils';
 import { KeeperConfig, LiquiditySource, PoolConfig } from './config-types';
 import { logger } from './logging';
@@ -32,6 +32,7 @@ interface HandleTakeParams {
     | 'curveRouterOverrides'    
     | 'tokenAddresses'
   >;
+  snapshot?: PoolSnapshot;
 }
 
 export async function handleTakes({
@@ -39,6 +40,7 @@ export async function handleTakes({
   pool,
   poolConfig,
   config,
+  snapshot,
 }: HandleTakeParams) {
   // Smart Detection - route to appropriate take handler
   const dexManager = new SmartDexManager(signer, config);
@@ -60,6 +62,7 @@ export async function handleTakes({
         pool,
         poolConfig,
         config,
+        snapshot,
       });
       break;
 
@@ -78,9 +81,10 @@ export async function handleTakes({
           takerContracts: config.takerContracts,
           universalRouterOverrides: (config as any).universalRouterOverrides, // Type fix
 	  sushiswapRouterOverrides: (config as any).sushiswapRouterOverrides,
-	  curveRouterOverrides: (config as any).curveRouterOverrides,
+          curveRouterOverrides: (config as any).curveRouterOverrides,
           tokenAddresses: config.tokenAddresses,
         },
+        snapshot,
       });
       break;
 
@@ -93,6 +97,7 @@ export async function handleTakes({
         pool,
         poolConfig,
         config,
+        snapshot,
       });
       break;
   }
@@ -118,6 +123,7 @@ export async function handleTakesWith1inch({
   pool,
   poolConfig,
   config,
+  snapshot,
 }: HandleTakeParams) {
   
   for await (const liquidation of getLiquidationsToTake({
@@ -125,6 +131,7 @@ export async function handleTakesWith1inch({
     poolConfig,
     signer,
     config,
+    snapshot,
   })) {
     if (liquidation.isTakeable) {
       await takeLiquidation({
@@ -165,6 +172,7 @@ interface GetLiquidationsToTakeParams
     KeeperConfig,
     'subgraphUrl' | 'delayBetweenActions' | 'oneInchRouters' | 'connectorTokens'
   >;
+  snapshot?: PoolSnapshot;
 }
 
 async function checkIfArbTakeable(
@@ -174,7 +182,8 @@ async function checkIfArbTakeable(
   poolConfig: RequireFields<PoolConfig, 'take'>,
   subgraphUrl: string,
   minDeposit: string,
-  signer: Signer
+  signer: Signer,
+  snapshotBuckets?: PoolSnapshotBucket[]
 ): Promise<{ isArbTakeable: boolean; hpbIndex: number }> {
   if (!poolConfig.take.minCollateral || !poolConfig.take.hpbPriceFactor) {
     return { isArbTakeable: false, hpbIndex: 0 };
@@ -194,23 +203,42 @@ async function checkIfArbTakeable(
     return { isArbTakeable: false, hpbIndex: 0 };
   }
 
-  const { buckets } = await subgraph.getHighestMeaningfulBucket(
-    subgraphUrl,
-    pool.poolAddress,
-    minDeposit
+  const minDepositValue = Number(minDeposit);
+  let bucketIndex: number | undefined;
+
+  if (snapshotBuckets && snapshotBuckets.length > 0) {
+    const meaningful = snapshotBuckets.find((bucket) => {
+      const deposit = Number(bucket.deposit);
+      return Number.isFinite(deposit) && deposit > minDepositValue;
+    });
+    if (meaningful) {
+      bucketIndex = meaningful.bucketIndex;
+    }
+  }
+
+  if (bucketIndex === undefined) {
+    const { buckets } = await subgraph.getHighestMeaningfulBucket(
+      subgraphUrl,
+      pool.poolAddress,
+      minDeposit
+    );
+    if (buckets.length === 0) {
+      return { isArbTakeable: false, hpbIndex: 0 };
+    }
+    bucketIndex = buckets[0].bucketIndex;
+  }
+
+  const hmbPrice = Number(
+    weiToDecimaled(pool.getBucketByIndex(bucketIndex).price)
   );
-  if (buckets.length === 0) {
+  if (!Number.isFinite(hmbPrice)) {
     return { isArbTakeable: false, hpbIndex: 0 };
   }
 
-  const hmbIndex = buckets[0].bucketIndex;
-  const hmbPrice = Number(
-    weiToDecimaled(pool.getBucketByIndex(hmbIndex).price)
-  );
   const maxArbPrice = hmbPrice * poolConfig.take.hpbPriceFactor;
   return {
     isArbTakeable: price < maxArbPrice,
-    hpbIndex: hmbIndex,
+    hpbIndex: bucketIndex,
   };
 }
 
@@ -313,16 +341,41 @@ export async function* getLiquidationsToTake({
   poolConfig,
   signer,
   config,
+  snapshot,
 }: GetLiquidationsToTakeParams): AsyncGenerator<LiquidationToTake> {
   const { subgraphUrl, oneInchRouters, connectorTokens } = config;
-  const {
-    pool: { hpb, hpbIndex, liquidationAuctions },
-  } = await subgraph.getLiquidations(
-    subgraphUrl,
-    pool.poolAddress,
-    poolConfig.take.minCollateral ?? 0
-  );
-  for (const auction of liquidationAuctions) {
+  type AuctionEntry = { borrower: string; collateralRemaining?: string };
+
+  let hpbValue = 0;
+  let auctionEntries: AuctionEntry[] = [];
+
+  if (snapshot) {
+    hpbValue = Number(snapshot.hpb ?? 0);
+    auctionEntries = snapshot.liquidationAuctions.map((auction) => ({
+      borrower: auction.borrower,
+      collateralRemaining: auction.collateralRemaining,
+    }));
+    const minCollateralFilter = poolConfig.take.minCollateral ?? 0;
+    if (minCollateralFilter > 0) {
+      auctionEntries = auctionEntries.filter((auction) => {
+        if (auction.collateralRemaining === undefined) {
+          return true;
+        }
+        const remaining = Number(auction.collateralRemaining);
+        return Number.isFinite(remaining) ? remaining > minCollateralFilter : true;
+      });
+    }
+  } else {
+    const graphResult = await subgraph.getLiquidations(
+      subgraphUrl,
+      pool.poolAddress,
+      poolConfig.take.minCollateral ?? 0
+    );
+    hpbValue = Number(graphResult.pool.hpb ?? 0);
+    auctionEntries = graphResult.pool.liquidationAuctions;
+  }
+
+  for (const auction of auctionEntries) {
     const { borrower } = auction;
     const liquidationStatus = await pool.getLiquidation(borrower).getStatus();
     const price = Number(weiToDecimaled(liquidationStatus.price));
@@ -346,15 +399,17 @@ export async function* getLiquidationsToTake({
     }
 
     if (poolConfig.take.minCollateral && poolConfig.take.hpbPriceFactor) {
-      const minDeposit = poolConfig.take.minCollateral / hpb;
+      const minDeposit =
+        hpbValue > 0 ? poolConfig.take.minCollateral / hpbValue : 0;
       const arbTakeCheck = await checkIfArbTakeable(
         pool,
         price,
         collateral,
         poolConfig,
         subgraphUrl,
-        minDeposit.toString(),
-        signer
+        minDeposit > 0 ? minDeposit.toString() : '0',
+        signer,
+        snapshot?.buckets
       );
       isArbTakeable = arbTakeCheck.isArbTakeable;
       arbHpbIndex = arbTakeCheck.hpbIndex;

@@ -9,7 +9,7 @@ import {
 } from './erc20';
 import { logger } from './logging';
 import { getPrice } from './price';
-import subgraph from './subgraph';
+import subgraph, { PoolSnapshot } from './subgraph';
 import {
   decimaledToWei,
   delay,
@@ -28,6 +28,7 @@ interface HandleKickParams {
     'dryRun' | 'subgraphUrl' | 'delayBetweenActions' | 'coinGeckoApiKey' | 'ethRpcUrl' | 'tokenAddresses'
   >;
   chainId?: number;
+  snapshot?: PoolSnapshot;
 }
 
 const LIQUIDATION_BOND_MARGIN: number = 0.01; // How much extra margin to allow for liquidationBond. Expressed as a ratio (0 - 1).
@@ -38,12 +39,14 @@ export async function handleKicks({
   signer,
   config,
   chainId,
+  snapshot,
 }: HandleKickParams) {
   for await (const loanToKick of getLoansToKick({
     pool,
     poolConfig,
     config,
     chainId,
+    snapshot,
   })) {
     await kick({ signer, pool, loanToKick, config });
     await delay(config.delayBetweenActions);
@@ -61,6 +64,7 @@ interface LoanToKick {
 interface GetLoansToKickParams
   extends Pick<HandleKickParams, 'pool' | 'poolConfig' | 'chainId'> {
   config: Pick<KeeperConfig, 'subgraphUrl' | 'coinGeckoApiKey' | 'ethRpcUrl' | 'tokenAddresses'>;
+  snapshot?: PoolSnapshot;
 }
 
 export async function* getLoansToKick({
@@ -68,10 +72,24 @@ export async function* getLoansToKick({
   config,
   poolConfig,
   chainId,
+  snapshot,
 }: GetLoansToKickParams): AsyncGenerator<LoanToKick> {
   const { subgraphUrl } = config;
-  const { loans } = await subgraph.getLoans(subgraphUrl, pool.poolAddress);
-  const loanMap = await pool.getLoans(loans.map(({ borrower }) => borrower));
+  const loanAddresses = snapshot
+    ? snapshot.loans.map(({ borrower }) => borrower)
+    : (await subgraph.getLoans(subgraphUrl, pool.poolAddress)).loans.map(
+        ({ borrower }) => borrower
+      );
+
+  if (!loanAddresses.length) {
+    return;
+  }
+
+  const [loanMap, poolPrices] = await Promise.all([
+    pool.getLoans(loanAddresses),
+    pool.getPrices(),
+  ]);
+
   const borrowersSortedByBond = Array.from(loanMap.keys()).sort(
     (borrowerA, borrowerB) => {
       const bondA = weiToDecimaled(loanMap.get(borrowerA)!.liquidationBond);
@@ -87,10 +105,10 @@ export async function* getLoansToKick({
 
   for (let i = 0; i < borrowersSortedByBond.length; i++) {
     const borrower = borrowersSortedByBond[i];
-    const [poolPrices, loanDetails] = await Promise.all([
-      pool.getPrices(),
-      pool.getLoan(borrower),
-    ]);
+    const loanDetails = loanMap.get(borrower);
+    if (!loanDetails) {
+      continue;
+    }
     const { lup, hpb } = poolPrices;
     const { thresholdPrice, liquidationBond, debt, neutralPrice } = loanDetails;
     const estimatedRemainingBond = liquidationBond.add(

@@ -6,7 +6,7 @@ import { BigNumber, ethers } from 'ethers';
 import { configureAjna, LiquiditySource, KeeperConfig, PoolConfig } from '../config-types';
 import { handleTakes } from '../take';
 import { handleKicks } from '../kick';
-import { arrayFromAsync, decimaledToWei } from '../utils';
+import { arrayFromAsync, decimaledToWei, RequireFields } from '../utils';
 import { depositQuoteToken, drawDebt } from './loan-helpers';
 import { NonceTracker } from '../nonce';
 import { MAINNET_CONFIG } from './test-config';
@@ -16,6 +16,7 @@ import {
   resetHardhat,
   setBalance,
   increaseTime,
+  makeConfigPick,
 } from './test-utils';
 import {
   makeGetHighestMeaningfulBucket,
@@ -70,12 +71,15 @@ describe('Take Integration Tests', () => {
       pool,
       poolConfig: MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
       signer,
-      config: {
-        dryRun: false,
-        subgraphUrl: '',
-        coinGeckoApiKey: '',
-        delayBetweenActions: 0,
-      },
+      config: makeConfigPick(
+        ['dryRun', 'subgraphUrl', 'coinGeckoApiKey', 'delayBetweenActions', 'ethRpcUrl', 'tokenAddresses'] as const,
+        {
+          dryRun: false,
+          subgraphUrl: '',
+          coinGeckoApiKey: '',
+          delayBetweenActions: 0,
+        }
+      ),
     });
 
     // Age the auction to make it takeable
@@ -134,7 +138,7 @@ describe('Take Integration Tests', () => {
         }
       };
 
-      const uniswapPoolConfig: PoolConfig = {
+      const uniswapPoolConfig: RequireFields<PoolConfig, 'take'> = {
         ...MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
         take: {
           minCollateral: 0.1,
@@ -170,7 +174,7 @@ describe('Take Integration Tests', () => {
         connectorTokens: []
       };
 
-      const oneInchPoolConfig: PoolConfig = {
+      const oneInchPoolConfig: RequireFields<PoolConfig, 'take'> = {
         ...MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
         take: {
           minCollateral: 0.1,
@@ -202,7 +206,7 @@ describe('Take Integration Tests', () => {
         // No external DEX configs
       };
 
-      const arbTakePoolConfig: PoolConfig = {
+      const arbTakePoolConfig: RequireFields<PoolConfig, 'take'> = {
         ...MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
         take: {
           minCollateral: 0.1,
@@ -241,7 +245,7 @@ describe('Take Integration Tests', () => {
         }
       };
 
-      const uniswapPoolConfig: PoolConfig = {
+      const uniswapPoolConfig: RequireFields<PoolConfig, 'take'> = {
         ...MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
         take: {
           minCollateral: 0.1,
@@ -287,7 +291,7 @@ describe('Take Integration Tests', () => {
         ]
       };
 
-      const existingPoolConfig: PoolConfig = {
+      const existingPoolConfig: RequireFields<PoolConfig, 'take'> = {
         ...MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
         take: {
           minCollateral: 1e-8,
@@ -319,7 +323,7 @@ describe('Take Integration Tests', () => {
         // No external DEX integration
       };
 
-      const existingArbTakePoolConfig: PoolConfig = {
+      const existingArbTakePoolConfig: RequireFields<PoolConfig, 'take'> = {
         ...MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
         take: {
           minCollateral: 1e-8,
@@ -358,7 +362,7 @@ describe('Take Integration Tests', () => {
         }
       };
 
-      const legacyPoolConfig: PoolConfig = {
+      const legacyPoolConfig: RequireFields<PoolConfig, 'take'> = {
         ...MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
         take: {
           minCollateral: 1e-8,
@@ -396,7 +400,7 @@ describe('Take Integration Tests', () => {
         // Missing all DEX configurations
       };
 
-      const poolConfigRequiringDEX: PoolConfig = {
+      const poolConfigRequiringDEX: RequireFields<PoolConfig, 'take'> = {
         ...MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
         take: {
           minCollateral: 0.1,
@@ -427,7 +431,7 @@ describe('Take Integration Tests', () => {
         keeperTaker: '0x1234567890123456789012345678901234567890',
       };
 
-      const invalidPoolConfig: PoolConfig = {
+      const invalidPoolConfig: RequireFields<PoolConfig, 'take'> = {
         ...MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
         take: {
           minCollateral: 0.1,
@@ -464,7 +468,7 @@ describe('Take Integration Tests', () => {
         // Missing takerContracts and universalRouterOverrides
       };
 
-      const uniswapPoolConfig: PoolConfig = {
+      const uniswapPoolConfig: RequireFields<PoolConfig, 'take'> = {
         ...MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
         take: {
           minCollateral: 0.1,
@@ -509,7 +513,7 @@ describe('Take Integration Tests', () => {
         }
       };
 
-      const combinedPoolConfig: PoolConfig = {
+      const combinedPoolConfig: RequireFields<PoolConfig, 'take'> = {
         ...MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
         take: {
           minCollateral: 0.1,
@@ -539,7 +543,7 @@ describe('Take Integration Tests', () => {
         delayBetweenActions: 100,
       };
 
-      const minimalPoolConfig: PoolConfig = {
+      const minimalPoolConfig: RequireFields<PoolConfig, 'take'> = {
         ...MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
         take: {
           minCollateral: 0.1,
@@ -562,23 +566,44 @@ describe('Take Integration Tests', () => {
       await setupLiquidationScenario();
       
       // Simulate multiple pools scenario - test that each pool config is handled independently
-      const multiStrategyConfig: Partial<KeeperConfig> = {
-        dryRun: true,
-        subgraphUrl: 'http://test-url',
-        delayBetweenActions: 100,
-        // Support both strategies
-        keeperTaker: '0x1111111111111111111111111111111111111111',
-        oneInchRouters: { 1: '0x1111111254EEB25477B68fb85Ed929f73A960582' },
-        keeperTakerFactory: '0x2222222222222222222222222222222222222222',
-        takerContracts: { 'UniswapV3': '0x3333333333333333333333333333333333333333' },
-        universalRouterOverrides: {
-          universalRouterAddress: '0x533c7A53389e0538AB6aE1D7798D6C1213eAc28B',
-          quoterV2Address: '0xcBa55304013187D49d4012F4d7e4B63a04405cd5',
+      const multiStrategyConfig = makeConfigPick(
+        [
+          'dryRun',
+          'subgraphUrl',
+          'delayBetweenActions',
+          'keeperTaker',
+          'oneInchRouters',
+          'keeperTakerFactory',
+          'takerContracts',
+          'universalRouterOverrides',
+          'sushiswapRouterOverrides',
+          'curveRouterOverrides',
+          'aerodromeRouterOverrides',
+          'connectorTokens',
+          'tokenAddresses',
+        ] as const,
+        {
+          dryRun: true,
+          subgraphUrl: 'http://test-url',
+          delayBetweenActions: 100,
+          keeperTaker: '0x1111111111111111111111111111111111111111',
+          oneInchRouters: {
+            1: '0x1111111254EEB25477B68fb85Ed929f73A960582',
+          },
+          keeperTakerFactory: '0x2222222222222222222222222222222222222222',
+          takerContracts: {
+            UniswapV3: '0x3333333333333333333333333333333333333333',
+          },
+          universalRouterOverrides: {
+            universalRouterAddress:
+              '0x533c7A53389e0538AB6aE1D7798D6C1213eAc28B',
+            quoterV2Address: '0xcBa55304013187D49d4012F4d7e4B63a04405cd5',
+          },
         }
-      };
+      );
 
       // Test different pool configurations one by one
-      const poolConfigs = [
+      const poolConfigs: Array<{ name: string; config: RequireFields<PoolConfig, 'take'> }> = [
         {
           name: 'Uniswap V3 Pool',
           config: {
@@ -586,9 +611,9 @@ describe('Take Integration Tests', () => {
             take: {
               minCollateral: 0.1,
               liquiditySource: LiquiditySource.UNISWAPV3,
-              marketPriceFactor: 0.95
-            }
-          }
+              marketPriceFactor: 0.95,
+            },
+          } as RequireFields<PoolConfig, 'take'>,
         },
         {
           name: '1inch Pool',
@@ -597,9 +622,9 @@ describe('Take Integration Tests', () => {
             take: {
               minCollateral: 0.1,
               liquiditySource: LiquiditySource.ONEINCH,
-              marketPriceFactor: 0.95
-            }
-          }
+              marketPriceFactor: 0.95,
+            },
+          } as RequireFields<PoolConfig, 'take'>,
         },
         {
           name: 'ArbTake Only Pool',
@@ -607,9 +632,9 @@ describe('Take Integration Tests', () => {
             ...MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
             take: {
               minCollateral: 0.1,
-              hpbPriceFactor: 0.98
-            }
-          }
+              hpbPriceFactor: 0.98,
+            },
+          } as RequireFields<PoolConfig, 'take'>,
         }
       ];
 
@@ -618,8 +643,8 @@ describe('Take Integration Tests', () => {
         await handleTakes({
           signer,
           pool,
-          poolConfig: poolTest.config as any,
-          config: multiStrategyConfig as any,
+          poolConfig: poolTest.config,
+          config: multiStrategyConfig,
         });
       }
       
@@ -636,21 +661,37 @@ describe('Take Integration Tests', () => {
     it('should handle dry run mode correctly for all take strategies', async () => {
       await setupLiquidationScenario();
       
-      const dryRunConfig: Partial<KeeperConfig> = {
-        dryRun: true, // Critical: dry run mode
-        subgraphUrl: 'http://test-url',
-        delayBetweenActions: 100,
-        keeperTakerFactory: '0x1234567890123456789012345678901234567890',
-        takerContracts: {
-          'UniswapV3': '0x2234567890123456789012345678901234567890'
-        },
-        universalRouterOverrides: {
-          universalRouterAddress: '0x533c7A53389e0538AB6aE1D7798D6C1213eAc28B',
-          quoterV2Address: '0xcBa55304013187D49d4012F4d7e4B63a04405cd5',
+      const dryRunConfig = makeConfigPick(
+        [
+          'dryRun',
+          'subgraphUrl',
+          'delayBetweenActions',
+          'keeperTakerFactory',
+          'takerContracts',
+          'universalRouterOverrides',
+          'sushiswapRouterOverrides',
+          'curveRouterOverrides',
+          'aerodromeRouterOverrides',
+          'connectorTokens',
+          'tokenAddresses',
+        ] as const,
+        {
+          dryRun: true,
+          subgraphUrl: 'http://test-url',
+          delayBetweenActions: 100,
+          keeperTakerFactory: '0x1234567890123456789012345678901234567890',
+          takerContracts: {
+            UniswapV3: '0x2234567890123456789012345678901234567890',
+          },
+          universalRouterOverrides: {
+            universalRouterAddress:
+              '0x533c7A53389e0538AB6aE1D7798D6C1213eAc28B',
+            quoterV2Address: '0xcBa55304013187D49d4012F4d7e4B63a04405cd5',
+          },
         }
-      };
+      );
 
-      const uniswapPoolConfig: PoolConfig = {
+      const uniswapPoolConfig: RequireFields<PoolConfig, 'take'> = {
         ...MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
         take: {
           minCollateral: 0.1,
@@ -664,8 +705,8 @@ describe('Take Integration Tests', () => {
       await handleTakes({
         signer,
         pool,
-        poolConfig: uniswapPoolConfig as any,
-        config: dryRunConfig as any,
+        poolConfig: uniswapPoolConfig,
+        config: dryRunConfig,
       });
       
       expect(true).to.be.true;
@@ -677,70 +718,105 @@ describe('Take Integration Tests', () => {
       const strategies = [
         {
           name: 'Factory (Uniswap V3)',
-          config: {
-            dryRun: true,
-            keeperTakerFactory: '0x1234567890123456789012345678901234567890',
-            takerContracts: { 'UniswapV3': '0x2234567890123456789012345678901234567890' },
-            universalRouterOverrides: {
-              universalRouterAddress: '0x533c7A53389e0538AB6aE1D7798D6C1213eAc28B',
-              quoterV2Address: '0xcBa55304013187D49d4012F4d7e4B63a04405cd5',
+          config: makeConfigPick(
+            [
+              'dryRun',
+              'keeperTakerFactory',
+              'takerContracts',
+              'universalRouterOverrides',
+              'sushiswapRouterOverrides',
+              'curveRouterOverrides',
+              'aerodromeRouterOverrides',
+              'delayBetweenActions',
+              'subgraphUrl',
+              'connectorTokens',
+              'tokenAddresses',
+            ] as const,
+            {
+              dryRun: true,
+              keeperTakerFactory:
+                '0x1234567890123456789012345678901234567890',
+              takerContracts: {
+                UniswapV3: '0x2234567890123456789012345678901234567890',
+              },
+              universalRouterOverrides: {
+                universalRouterAddress:
+                  '0x533c7A53389e0538AB6aE1D7798D6C1213eAc28B',
+                quoterV2Address: '0xcBa55304013187D49d4012F4d7e4B63a04405cd5',
+              },
+              subgraphUrl: 'http://test-url',
+              delayBetweenActions: 100,
             }
-          },
+          ),
           poolConfig: {
+            ...MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
             take: {
               minCollateral: 0.1,
               liquiditySource: LiquiditySource.UNISWAPV3,
-              marketPriceFactor: 0.95
-            }
-          }
+              marketPriceFactor: 0.95,
+            },
+          } as RequireFields<PoolConfig, 'take'>,
         },
         {
           name: 'Single (1inch)',
-          config: {
-            dryRun: true,
-            keeperTaker: '0x1234567890123456789012345678901234567890',
-            oneInchRouters: { 1: '0x1111111254EEB25477B68fb85Ed929f73A960582' }
-          },
+          config: makeConfigPick(
+            [
+              'dryRun',
+              'keeperTaker',
+              'oneInchRouters',
+              'delayBetweenActions',
+              'subgraphUrl',
+              'connectorTokens',
+              'tokenAddresses',
+            ] as const,
+            {
+              dryRun: true,
+              keeperTaker: '0x1234567890123456789012345678901234567890',
+              oneInchRouters: {
+                1: '0x1111111254EEB25477B68fb85Ed929f73A960582',
+              },
+              subgraphUrl: 'http://test-url',
+              delayBetweenActions: 100,
+              connectorTokens: [],
+            }
+          ),
           poolConfig: {
+            ...MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
             take: {
               minCollateral: 0.1,
               liquiditySource: LiquiditySource.ONEINCH,
-              marketPriceFactor: 0.95
-            }
-          }
+              marketPriceFactor: 0.95,
+            },
+          } as RequireFields<PoolConfig, 'take'>,
         },
         {
           name: 'ArbTake Only',
-          config: {
-            dryRun: true,
-          },
+          config: makeConfigPick(
+            ['dryRun', 'delayBetweenActions', 'subgraphUrl'] as const,
+            {
+              dryRun: true,
+              subgraphUrl: 'http://test-url',
+              delayBetweenActions: 100,
+            }
+          ),
           poolConfig: {
+            ...MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
             take: {
               minCollateral: 0.1,
-              hpbPriceFactor: 0.98
-            }
-          }
+              hpbPriceFactor: 0.98,
+            },
+          } as RequireFields<PoolConfig, 'take'>,
         }
       ];
 
       // All strategies should respect dry run mode
       for (const strategy of strategies) {
-        const fullConfig = {
-          ...strategy.config,
-          subgraphUrl: 'http://test-url',
-          delayBetweenActions: 100,
-        };
-
-        const fullPoolConfig = {
-          ...MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
-          ...strategy.poolConfig
-        };
-
+        const fullPoolConfig: RequireFields<PoolConfig, 'take'> = strategy.poolConfig;
         await handleTakes({
           signer,
           pool,
-          poolConfig: fullPoolConfig as any,
-          config: fullConfig as any,
+          poolConfig: fullPoolConfig,
+          config: strategy.config,
         });
       }
       

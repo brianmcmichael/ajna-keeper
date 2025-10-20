@@ -9,6 +9,7 @@ import {
   increaseTime,
   impersonateSigner,
   setBalance,
+  makeConfigPick,
 } from './test-utils';
 import {
   makeGetHighestMeaningfulBucket,
@@ -56,10 +57,13 @@ const setup = async () => {
     getLoansToKick({
       pool,
       poolConfig: MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
-      config: {
-        subgraphUrl: '',
-        coinGeckoApiKey: '',
-      },
+      config: makeConfigPick(
+        ['subgraphUrl', 'coinGeckoApiKey', 'ethRpcUrl', 'tokenAddresses'] as const,
+        {
+          subgraphUrl: '',
+          coinGeckoApiKey: '',
+        }
+      ),
     })
   );
   const signer = await impersonateSigner(
@@ -73,9 +77,7 @@ const setup = async () => {
     pool,
     signer,
     loanToKick: loansToKick[0],
-    config: {
-      dryRun: false,
-    },
+    config: makeConfigPick(['dryRun'] as const, { dryRun: false }),
   });
 
   return { pool, signer };
@@ -94,11 +96,15 @@ describe('getLiquidationsToArbTake', () => {
         pool,
         poolConfig: MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
         signer,
-        config: {
-          subgraphUrl: '',
-          oneInchRouters: {},
-          connectorTokens: [],
-        },
+        config: makeConfigPick(
+          ['subgraphUrl', 'oneInchRouters', 'connectorTokens', 'delayBetweenActions'] as const,
+          {
+            subgraphUrl: '',
+            oneInchRouters: {},
+            connectorTokens: [],
+            delayBetweenActions: 0,
+          }
+        ),
       })
     );
     expect(liquidationsToArbTake).to.be.empty;
@@ -113,11 +119,15 @@ describe('getLiquidationsToArbTake', () => {
         pool,
         poolConfig: MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
         signer,
-        config: {
-          subgraphUrl: '',
-          oneInchRouters: {},
-          connectorTokens: [],
-        },
+        config: makeConfigPick(
+          ['subgraphUrl', 'oneInchRouters', 'connectorTokens', 'delayBetweenActions'] as const,
+          {
+            subgraphUrl: '',
+            oneInchRouters: {},
+            connectorTokens: [],
+            delayBetweenActions: 0,
+          }
+        ),
       })
     );
     expect(liquidationsToArbTake.length).equals(1);
@@ -143,11 +153,15 @@ describe('arbTakeLiquidation', () => {
         pool,
         poolConfig: MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
         signer,
-        config: {
-          subgraphUrl: '',
-          oneInchRouters: {},
-          connectorTokens: [],
-        },
+        config: makeConfigPick(
+          ['subgraphUrl', 'oneInchRouters', 'connectorTokens', 'delayBetweenActions'] as const,
+          {
+            subgraphUrl: '',
+            oneInchRouters: {},
+            connectorTokens: [],
+            delayBetweenActions: 0,
+          }
+        ),
       })
     );
 
@@ -155,9 +169,7 @@ describe('arbTakeLiquidation', () => {
       pool,
       poolConfig: MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
       signer,
-      config: {
-        dryRun: false,
-      },
+      config: makeConfigPick(['dryRun'] as const, { dryRun: false }),
       liquidation: liquidationsToArbTake[0],
     });
     const bucket = await pool.getBucketByIndex(
@@ -219,11 +231,14 @@ describe('handleTakesWith1inch', () => {
       signer,
       pool,
       poolConfig: MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
-      config: {
-        subgraphUrl: '',
-        coinGeckoApiKey: '',
-        delayBetweenActions: 0,
-      },
+      config: makeConfigPick(
+        ['subgraphUrl', 'coinGeckoApiKey', 'delayBetweenActions', 'dryRun', 'ethRpcUrl', 'tokenAddresses'] as const,
+        {
+          subgraphUrl: '',
+          coinGeckoApiKey: '',
+          delayBetweenActions: 0,
+        }
+      ),
     });
     const AUCTION_WAIT_TIME = 60 * 20 * 6 + 2 * 2 * 60 * 60 + 50 * 60;
     await increaseTime(AUCTION_WAIT_TIME);
@@ -232,10 +247,27 @@ describe('handleTakesWith1inch', () => {
       signer,
       pool,
       poolConfig: MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
-      config: {
-        subgraphUrl: '',
-        delayBetweenActions: 0,
-      },
+      config: makeConfigPick(
+        [
+          'subgraphUrl',
+          'delayBetweenActions',
+          'connectorTokens',
+          'oneInchRouters',
+          'keeperTaker',
+          'keeperTakerFactory',
+          'takerContracts',
+          'universalRouterOverrides',
+          'sushiswapRouterOverrides',
+          'curveRouterOverrides',
+          'tokenAddresses',
+        ] as const,
+        {
+          subgraphUrl: '',
+          delayBetweenActions: 0,
+          oneInchRouters: {},
+          connectorTokens: [],
+        }
+      ),
     });
 
     const bucket1Status = await bucket1.getStatus();
@@ -248,10 +280,27 @@ describe('handleTakesWith1inch', () => {
       signer,
       pool,
       poolConfig: MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
-      config: {
-        subgraphUrl: '',
-        delayBetweenActions: 0,
-      },
+      config: makeConfigPick(
+        [
+          'subgraphUrl',
+          'delayBetweenActions',
+          'connectorTokens',
+          'oneInchRouters',
+          'keeperTaker',
+          'keeperTakerFactory',
+          'takerContracts',
+          'universalRouterOverrides',
+          'sushiswapRouterOverrides',
+          'curveRouterOverrides',
+          'tokenAddresses',
+        ] as const,
+        {
+          subgraphUrl: '',
+          delayBetweenActions: 0,
+          oneInchRouters: {},
+          connectorTokens: [],
+        }
+      ),
     });
 
     const bucket2Status = await bucket2.getStatus();

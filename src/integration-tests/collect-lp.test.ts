@@ -28,6 +28,8 @@ import {
   impersonateSigner,
   increaseTime,
   resetHardhat,
+  createTestKeeperConfig,
+  makeConfigPick,
 } from './test-utils';
 import { SECONDS_PER_YEAR, SECONDS_PER_DAY } from '../constants';
 
@@ -60,12 +62,22 @@ const setup = async () => {
     pool,
     poolConfig: MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
     signer,
-    config: {
-      dryRun: false,
-      subgraphUrl: '',
-      coinGeckoApiKey: '',
-      delayBetweenActions: 0,
-    },
+    config: makeConfigPick(
+      [
+        'dryRun',
+        'subgraphUrl',
+        'coinGeckoApiKey',
+        'delayBetweenActions',
+        'ethRpcUrl',
+        'tokenAddresses',
+      ] as const,
+      {
+        dryRun: false,
+        subgraphUrl: '',
+        coinGeckoApiKey: '',
+        delayBetweenActions: 0,
+      }
+    ),
   });
   await increaseTime(SECONDS_PER_DAY * 1.5);
   return pool;
@@ -92,17 +104,15 @@ describe('LpCollector subscription', () => {
           minAmountCollateral: 0,
         },
       },
-      {},
+      makeConfigPick(['dryRun'] as const, { dryRun: false }),
       new RewardActionTracker(
         signer,
-        {
+        createTestKeeperConfig({
           uniswapOverrides: {
             wethAddress: MAINNET_CONFIG.WETH_ADDRESS,
             uniswapV3Router: MAINNET_CONFIG.UNISWAP_V3_ROUTER,
           },
-          delayBetweenActions: 0,
-          pools: [],
-        },
+        }),
         dexRouter
       )
     );
@@ -111,11 +121,29 @@ describe('LpCollector subscription', () => {
       pool,
       poolConfig: MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
       signer,
-      config: {
-        dryRun: false,
-        subgraphUrl: '',
-        delayBetweenActions: 0,
-      },
+      config: makeConfigPick(
+        [
+          'dryRun',
+          'subgraphUrl',
+          'delayBetweenActions',
+          'connectorTokens',
+          'oneInchRouters',
+          'keeperTaker',
+          'keeperTakerFactory',
+          'takerContracts',
+          'universalRouterOverrides',
+          'sushiswapRouterOverrides',
+          'curveRouterOverrides',
+          'tokenAddresses',
+        ] as const,
+        {
+          dryRun: false,
+          subgraphUrl: '',
+          delayBetweenActions: 0,
+          oneInchRouters: {},
+          connectorTokens: [],
+        }
+      ),
     });
     await waitForConditionToBeTrue(async () => {
       const entries = Array.from(lpCollector.lpMap.entries());
@@ -140,17 +168,15 @@ describe('LpCollector subscription', () => {
           minAmountCollateral: 0,
         },
       },
-      {},
+      makeConfigPick(['dryRun'] as const, { dryRun: false }),
       new RewardActionTracker(
         noActionSigner,
-        {
+        createTestKeeperConfig({
           uniswapOverrides: {
             wethAddress: MAINNET_CONFIG.WETH_ADDRESS,
             uniswapV3Router: MAINNET_CONFIG.UNISWAP_V3_ROUTER,
           },
-          delayBetweenActions: 0,
-          pools: [],
-        },
+        }),
         dexRouter
       )
     );
@@ -162,11 +188,29 @@ describe('LpCollector subscription', () => {
       pool,
       poolConfig: MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
       signer: takerSigner,
-      config: {
-        dryRun: false,
-        subgraphUrl: '',
-        delayBetweenActions: 0,
-      },
+      config: makeConfigPick(
+        [
+          'dryRun',
+          'subgraphUrl',
+          'delayBetweenActions',
+          'connectorTokens',
+          'oneInchRouters',
+          'keeperTaker',
+          'keeperTakerFactory',
+          'takerContracts',
+          'universalRouterOverrides',
+          'sushiswapRouterOverrides',
+          'curveRouterOverrides',
+          'tokenAddresses',
+        ] as const,
+        {
+          dryRun: false,
+          subgraphUrl: '',
+          delayBetweenActions: 0,
+          oneInchRouters: {},
+          connectorTokens: [],
+        }
+      ),
     });
     await delay(5);
     const entries = Array.from(lpCollector.lpMap.entries());
@@ -190,17 +234,15 @@ describe('LpCollector subscription', () => {
           minAmountCollateral: 0,
         },
       },
-      {},
+      makeConfigPick(['dryRun'] as const, { dryRun: false }),
       new RewardActionTracker(
         kickerSigner,
-        {
+        createTestKeeperConfig({
           uniswapOverrides: {
             wethAddress: MAINNET_CONFIG.WETH_ADDRESS,
             uniswapV3Router: MAINNET_CONFIG.UNISWAP_V3_ROUTER,
           },
-          delayBetweenActions: 0,
-          pools: [],
-        },
+        }),
         dexRouter
       )
     );
@@ -213,11 +255,29 @@ describe('LpCollector subscription', () => {
       pool,
       poolConfig: MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
       signer: takerSigner,
-      config: {
-        dryRun: false,
-        subgraphUrl: '',
-        delayBetweenActions: 0,
-      },
+      config: makeConfigPick(
+        [
+          'dryRun',
+          'subgraphUrl',
+          'delayBetweenActions',
+          'connectorTokens',
+          'oneInchRouters',
+          'keeperTaker',
+          'keeperTakerFactory',
+          'takerContracts',
+          'universalRouterOverrides',
+          'sushiswapRouterOverrides',
+          'curveRouterOverrides',
+          'tokenAddresses',
+        ] as const,
+        {
+          dryRun: false,
+          subgraphUrl: '',
+          delayBetweenActions: 0,
+          oneInchRouters: {},
+          connectorTokens: [],
+        }
+      ),
     });
     await waitForConditionToBeTrue(async () => {
       const entries = Array.from(lpCollector.lpMap.entries());
@@ -251,17 +311,15 @@ describe('LpCollector collections', () => {
           minAmountCollateral: 0,
         },
       },
-      {},
+      makeConfigPick(['dryRun'] as const, { dryRun: false }),
       new RewardActionTracker(
         signer,
-        {
+        createTestKeeperConfig({
           uniswapOverrides: {
             wethAddress: MAINNET_CONFIG.WETH_ADDRESS,
             uniswapV3Router: MAINNET_CONFIG.UNISWAP_V3_ROUTER,
           },
-          delayBetweenActions: 0,
-          pools: [],
-        },
+        }),
         dexRouter
       )
     );
@@ -270,11 +328,29 @@ describe('LpCollector collections', () => {
       pool,
       poolConfig: MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
       signer,
-      config: {
-        dryRun: false,
-        subgraphUrl: '',
-        delayBetweenActions: 0,
-      },
+      config: makeConfigPick(
+        [
+          'dryRun',
+          'subgraphUrl',
+          'delayBetweenActions',
+          'connectorTokens',
+          'oneInchRouters',
+          'keeperTaker',
+          'keeperTakerFactory',
+          'takerContracts',
+          'universalRouterOverrides',
+          'sushiswapRouterOverrides',
+          'curveRouterOverrides',
+          'tokenAddresses',
+        ] as const,
+        {
+          dryRun: false,
+          subgraphUrl: '',
+          delayBetweenActions: 0,
+          oneInchRouters: {},
+          connectorTokens: [],
+        }
+      ),
     });
     await waitForConditionToBeTrue(async () => {
       const entries = Array.from(lpCollector.lpMap.entries());

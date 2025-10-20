@@ -3,14 +3,18 @@ import { expect } from 'chai';
 import sinon from 'sinon';
 import { BigNumber, ethers, Wallet } from 'ethers';
 import { CurveQuoteProvider } from '../dex-providers/curve-quote-provider';
-import { CurvePoolType } from '../config-types';
+import { CurvePoolType, CurveRouterOverrides } from '../config-types';
 import { USER1_MNEMONIC } from './test-config';
 import { getProvider } from './test-utils';
 
 describe('Curve Quote Provider', () => {
   let mockSigner: any;
   let quoteProvider: CurveQuoteProvider;
-  let validConfig: any;
+  type TestCurveConfig = Required<CurveRouterOverrides> & {
+    tokenAddresses?: Record<string, string>;
+  };
+
+  let validConfig: TestCurveConfig;
 
   beforeEach(() => {
     // Reset sinon after each test
@@ -276,8 +280,9 @@ describe('Curve Quote Provider', () => {
 
     it('should validate Base mainnet pool addresses are real', async () => {
       // Test that our configured addresses are valid Ethereum addresses
-      const poolAddresses = Object.values(validConfig.poolConfigs).map(config => config.address);
-      const tokenAddresses = Object.values(validConfig.tokenAddresses);
+    const poolConfigs = Object.values(validConfig.poolConfigs);
+    const poolAddresses = poolConfigs.map(({ address }) => address);
+      const tokenAddresses = Object.values(validConfig.tokenAddresses ?? {});
       
       [...poolAddresses, ...tokenAddresses, validConfig.wethAddress].forEach(address => {
         expect(ethers.utils.isAddress(address), `${address} should be valid address`).to.be.true;
@@ -285,9 +290,9 @@ describe('Curve Quote Provider', () => {
       });
       
       // Test that pool types are valid enums
-      Object.values(validConfig.poolConfigs).forEach(config => {
-        expect([CurvePoolType.STABLE, CurvePoolType.CRYPTO]).to.include(config.poolType);
-      });
+      poolConfigs.forEach(({ poolType }) =>
+        expect([CurvePoolType.STABLE, CurvePoolType.CRYPTO]).to.include(poolType)
+      );
     });
   });
 });

@@ -12,6 +12,7 @@ import {
   resetHardhat,
   increaseTime,
   impersonateSigner,
+  makeConfigPick,
 } from './test-utils';
 import {
   makeGetHighestMeaningfulBucket,
@@ -92,12 +93,15 @@ describe('collectBondFromPool', () => {
           maxIterations: 10,
           checkBotIncentive: false,
         },
-      },
-      config: {
-        dryRun: false,
-        subgraphUrl: '',
-        delayBetweenActions: 0,
-      }
+      },  
+      config: makeConfigPick(
+        ['dryRun', 'subgraphUrl', 'delayBetweenActions'] as const,
+        {
+          dryRun: false,
+          subgraphUrl: '',
+          delayBetweenActions: 0,
+        }
+      ),
     });
     const amtWithdraw = await getAmountWithdrawn(pool, signer);
     expect(amtWithdraw).equals(0);
@@ -112,12 +116,22 @@ describe('collectBondFromPool', () => {
       pool,
       poolConfig: MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
       signer,
-      config: {
-        dryRun: false,
-        subgraphUrl: '',
-        coinGeckoApiKey: '',
-        delayBetweenActions: 0,
-      },
+      config: makeConfigPick(
+        [
+          'dryRun',
+          'subgraphUrl',
+          'coinGeckoApiKey',
+          'delayBetweenActions',
+          'ethRpcUrl',
+          'tokenAddresses',
+        ] as const,
+        {
+          dryRun: false,
+          subgraphUrl: '',
+          coinGeckoApiKey: '',
+          delayBetweenActions: 0,
+        }
+      ),
     });
 
     await collectBondFromPool({ 
@@ -133,11 +147,14 @@ describe('collectBondFromPool', () => {
           checkBotIncentive: false,
         },  
       },  
-      config: {
-        dryRun: false,
-        subgraphUrl: '', 
-        delayBetweenActions: 0,
-      }   
+      config: makeConfigPick(
+        ['dryRun', 'subgraphUrl', 'delayBetweenActions'] as const,
+        {
+          dryRun: false,
+          subgraphUrl: '',
+          delayBetweenActions: 0,
+        }
+      ),
     }); 
 
     const amtWithdraw = await getAmountWithdrawn(pool, signer);
@@ -153,23 +170,51 @@ describe('collectBondFromPool', () => {
       pool,
       poolConfig: MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
       signer,
-      config: {
-        dryRun: false,
-        subgraphUrl: '',
-        coinGeckoApiKey: '',
-        delayBetweenActions: 0,
-      },
+      config: makeConfigPick(
+        [
+          'dryRun',
+          'subgraphUrl',
+          'coinGeckoApiKey',
+          'delayBetweenActions',
+          'ethRpcUrl',
+          'tokenAddresses',
+        ] as const,
+        {
+          dryRun: false,
+          subgraphUrl: '',
+          coinGeckoApiKey: '',
+          delayBetweenActions: 0,
+        }
+      ),
     });
     await increaseTime(SECONDS_PER_DAY * 2);
-    await handleTakesWith1inch ({
+    await handleTakesWith1inch({
       pool,
       poolConfig: MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
       signer,
-      config: {
-        dryRun: false,
-        subgraphUrl: '',
-        delayBetweenActions: 0,
-      },
+      config: makeConfigPick(
+        [
+          'dryRun',
+          'subgraphUrl',
+          'delayBetweenActions',
+          'connectorTokens',
+          'oneInchRouters',
+          'keeperTaker',
+          'keeperTakerFactory',
+          'takerContracts',
+          'universalRouterOverrides',
+          'sushiswapRouterOverrides',
+          'curveRouterOverrides',
+          'tokenAddresses',
+        ] as const,
+        {
+          dryRun: false,
+          subgraphUrl: '',
+          delayBetweenActions: 0,
+          oneInchRouters: {},
+          connectorTokens: [],
+        }
+      ),
     });
     await increaseTime(SECONDS_PER_DAY * 2);
     const liquidation = await pool.getLiquidation(
@@ -192,11 +237,14 @@ describe('collectBondFromPool', () => {
           checkBotIncentive: false,
         },  
       },  
-      config: {
-        dryRun: false,
-        subgraphUrl: '', 
-        delayBetweenActions: 0,
-      }   
+      config: makeConfigPick(
+        ['dryRun', 'subgraphUrl', 'delayBetweenActions'] as const,
+        {
+          dryRun: false,
+          subgraphUrl: '',
+          delayBetweenActions: 0,
+        }
+      ),
     }); 
 
     const amtWithdrawn = await getAmountWithdrawn(pool, signer);

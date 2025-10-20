@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 import { HardhatUserConfig } from "hardhat/config";
 import '@typechain/hardhat'
-import '@nomicfoundation/hardhat-ethers'
+import '@nomiclabs/hardhat-ethers'
 import "@nomicfoundation/hardhat-verify";
 
 dotenv.config();

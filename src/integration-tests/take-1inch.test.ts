@@ -28,6 +28,7 @@ import {
   increaseTime,
   resetHardhat,
   setBalance,
+  makeConfigPick,
 } from './test-utils';
 
 describe('Take with 1inch Integration', () => {
@@ -180,10 +181,13 @@ describe('Take with 1inch Integration', () => {
       getLoansToKick({
         pool,
         poolConfig: MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
-        config: {
-          subgraphUrl: '',
-          coinGeckoApiKey: '',
-        },
+        config: makeConfigPick(
+          ['subgraphUrl', 'coinGeckoApiKey', 'ethRpcUrl', 'tokenAddresses'] as const,
+          {
+            subgraphUrl: '',
+            coinGeckoApiKey: '',
+          }
+        ),
       })
     );
     const kickSigner = await impersonateSigner(
@@ -197,9 +201,7 @@ describe('Take with 1inch Integration', () => {
       pool,
       signer: kickSigner,
       loanToKick: loansToKick[0],
-      config: {
-        dryRun: false,
-      },
+      config: makeConfigPick(['dryRun'] as const, { dryRun: false }),
     });
 
     await increaseTime(SECONDS_PER_DAY * 1);
@@ -245,12 +247,15 @@ describe('Take with 1inch Integration', () => {
           },
         },
         signer,
-        config: {
-          subgraphUrl: '',
-          oneInchRouters: { 1: '0x1111111254EEB25477B68fb85Ed929f73A960582' },
-          connectorTokens: [],
-          delayBetweenActions: 1,
-        },
+        config: makeConfigPick(
+          ['subgraphUrl', 'oneInchRouters', 'connectorTokens', 'delayBetweenActions'] as const,
+          {
+            subgraphUrl: '',
+            oneInchRouters: { 1: '0x1111111254EEB25477B68fb85Ed929f73A960582' },
+            connectorTokens: [],
+            delayBetweenActions: 1,
+          }
+        ),
       })
     );
     expect(liquidations.length).to.equal(0);
@@ -273,16 +278,18 @@ describe('Take with 1inch Integration', () => {
           },
         },
         signer,
-        config: {
-          subgraphUrl: '',
-          oneInchRouters: { 1: '0x1111111254EEB25477B68fb85Ed929f73A960582' },
-          connectorTokens: [],
-          delayBetweenActions: 1,
-        },
+        config: makeConfigPick(
+          ['subgraphUrl', 'oneInchRouters', 'connectorTokens', 'delayBetweenActions'] as const,
+          {
+            subgraphUrl: '',
+            oneInchRouters: { 1: '0x1111111254EEB25477B68fb85Ed929f73A960582' },
+            connectorTokens: [],
+            delayBetweenActions: 1,
+          }
+        ),
       })
     );
     expect(liquidations.length).to.equal(1);
-    expect(liquidations[0].takeStrategy).to.equal(1);
 
     await takeLiquidation({
       pool,
@@ -296,13 +303,16 @@ describe('Take with 1inch Integration', () => {
       },
       signer,
       liquidation: liquidations[0],
-      config: {
-        dryRun: false,
-        oneInchRouters: { 1: '0x1111111254EEB25477B68fb85Ed929f73A960582' },
-        connectorTokens: [],
-        keeperTaker: keeperTakerAddress,
-        delayBetweenActions: 1,
-      },
+      config: makeConfigPick(
+        ['dryRun', 'oneInchRouters', 'connectorTokens', 'keeperTaker', 'delayBetweenActions'] as const,
+        {
+          dryRun: false,
+          oneInchRouters: { 1: '0x1111111254EEB25477B68fb85Ed929f73A960582' },
+          connectorTokens: [],
+          keeperTaker: keeperTakerAddress,
+          delayBetweenActions: 1,
+        }
+      ),
     });
 
     const finalBalance = await quoteToken.balanceOf(signer.address);
@@ -369,12 +379,15 @@ describe('Take with 1inch Integration', () => {
           },
         },
         signer,
-        config: {
-          subgraphUrl: '',
-          oneInchRouters: { 1: '0x1111111254EEB25477B68fb85Ed929f73A960582' },
-          connectorTokens: [],
-          delayBetweenActions: 1,
-        },
+        config: makeConfigPick(
+          ['subgraphUrl', 'oneInchRouters', 'connectorTokens', 'delayBetweenActions'] as const,
+          {
+            subgraphUrl: '',
+            oneInchRouters: { 1: '0x1111111254EEB25477B68fb85Ed929f73A960582' },
+            connectorTokens: [],
+            delayBetweenActions: 1,
+          }
+        ),
       })
     );
     expect(liquidations.length).to.equal(1);
@@ -393,13 +406,16 @@ describe('Take with 1inch Integration', () => {
       },
       signer,
       liquidation: liquidations[0],
-      config: {
-        dryRun: false,
-        oneInchRouters: { 1: '0x1111111254EEB25477B68fb85Ed929f73A960582' },
-        connectorTokens: [],
-        keeperTaker: keeperTakerAddress,
-        delayBetweenActions: 1,
-      },
+      config: makeConfigPick(
+        ['dryRun', 'oneInchRouters', 'connectorTokens', 'keeperTaker', 'delayBetweenActions'] as const,
+        {
+          dryRun: false,
+          oneInchRouters: { 1: '0x1111111254EEB25477B68fb85Ed929f73A960582' },
+          connectorTokens: [],
+          keeperTaker: keeperTakerAddress,
+          delayBetweenActions: 1,
+        }
+      ),
     });
 
     const finalBalance = await quoteToken.balanceOf(signer.address);

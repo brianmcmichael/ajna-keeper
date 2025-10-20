@@ -15,6 +15,8 @@ import { RewardActionTracker } from './reward-action-tracker';
 import { DexRouter } from './dex-router';
 import { handleSettlements, tryReactiveSettlement } from './settlement';
 import { updatePoolInterestIfStale } from './pool-interest';
+import { getPoolSnapshotsCached } from './pool-snapshot-cache';
+import { PoolSnapshot } from './subgraph';
 
 type PoolMap = Map<string, FungiblePool>;
 
@@ -65,7 +67,23 @@ interface KeepPoolParams {
 
 async function kickPoolsLoop({ poolMap, config, signer, chainId }: KeepPoolParams) {
   const poolsWithKickSettings = config.pools.filter(hasKickSettings);
+  const poolAddresses = poolsWithKickSettings.map(({ address }) => address);
   while (true) {
+    let snapshotMap: Map<string, PoolSnapshot> | undefined;
+    if (poolAddresses.length > 0) {
+      try {
+        const snapshots = await getPoolSnapshotsCached(
+          config.subgraphUrl,
+          poolAddresses
+        );
+        snapshotMap = snapshots;
+      } catch (error) {
+        logger.warn(
+          `Failed to fetch pool snapshots for kick loop: ${String(error)}`
+        );
+      }
+    }
+
     for (const poolConfig of poolsWithKickSettings) {
       const pool = poolMap.get(poolConfig.address)!;
       try {
@@ -78,6 +96,7 @@ async function kickPoolsLoop({ poolMap, config, signer, chainId }: KeepPoolParam
           signer,
           config,
           chainId,
+          snapshot: snapshotMap?.get(poolConfig.address.toLowerCase()),
         });
         await delay(config.delayBetweenActions);
       } catch (error) {
@@ -96,7 +115,23 @@ function hasKickSettings(
 
 async function takePoolsLoop({ poolMap, config, signer }: KeepPoolParams) {
   const poolsWithTakeSettings = config.pools.filter(hasTakeSettings);
+  const poolAddresses = poolsWithTakeSettings.map(({ address }) => address);
   while (true) {
+    let snapshotMap: Map<string, PoolSnapshot> | undefined;
+    if (poolAddresses.length > 0) {
+      try {
+        const snapshots = await getPoolSnapshotsCached(
+          config.subgraphUrl,
+          poolAddresses
+        );
+        snapshotMap = snapshots;
+      } catch (error) {
+        logger.warn(
+          `Failed to fetch pool snapshots for take loop: ${String(error)}`
+        );
+      }
+    }
+
     for (const poolConfig of poolsWithTakeSettings) {
       const pool = poolMap.get(poolConfig.address)!;
       try {
@@ -109,6 +144,7 @@ async function takePoolsLoop({ poolMap, config, signer }: KeepPoolParams) {
           poolConfig,
           signer,
           config,
+          snapshot: snapshotMap?.get(poolConfig.address.toLowerCase()),
         });
         await delay(config.delayBetweenActions);
       } catch (error) {
@@ -157,6 +193,7 @@ async function collectBondLoop({ poolMap, config, signer }: KeepPoolParams) {
 
 async function settlementLoop({ poolMap, config, signer }: KeepPoolParams) {
   const poolsWithSettlementSettings = config.pools.filter(hasSettlementSettings);
+  const poolAddresses = poolsWithSettlementSettings.map(({ address }) => address);
   
   logger.info(`Settlement loop started with ${poolsWithSettlementSettings.length} pools`);
   logger.info(`Settlement pools: ${poolsWithSettlementSettings.map(p => p.name).join(', ')}`);
@@ -165,6 +202,21 @@ async function settlementLoop({ poolMap, config, signer }: KeepPoolParams) {
     try {
       const startTime = new Date().toISOString();
       logger.debug(`Settlement loop iteration starting at ${startTime}`);
+
+      let snapshotMap: Map<string, PoolSnapshot> | undefined;
+      if (poolAddresses.length > 0) {
+        try {
+          const snapshots = await getPoolSnapshotsCached(
+            config.subgraphUrl,
+            poolAddresses
+          );
+          snapshotMap = snapshots;
+        } catch (error) {
+          logger.warn(
+            `Failed to fetch pool snapshots for settlement loop: ${String(error)}`
+          );
+        }
+      }
       
       for (const poolConfig of poolsWithSettlementSettings) {
         const pool = poolMap.get(poolConfig.address)!;
@@ -182,7 +234,8 @@ async function settlementLoop({ poolMap, config, signer }: KeepPoolParams) {
               dryRun: config.dryRun,
               subgraphUrl: config.subgraphUrl,
               delayBetweenActions: config.delayBetweenActions
-            }
+            },
+            snapshot: snapshotMap?.get(poolConfig.address.toLowerCase()),
           });
           
           logger.debug(`Settlement check completed for pool: ${pool.name}`);
@@ -279,6 +332,19 @@ async function collectLpRewardsLoop({
           logger.info(`AuctionNotCleared detected - attempting settlement for ${pool.name}`);
     
         try {
+          let snapshot: PoolSnapshot | undefined;
+          try {
+            const snapshots = await getPoolSnapshotsCached(
+              config.subgraphUrl,
+              [poolConfig.address]
+            );
+            snapshot = snapshots.get(poolConfig.address.toLowerCase());
+          } catch (snapshotError) {
+            logger.warn(
+              `Failed to fetch snapshot for reactive settlement in ${pool.name}: ${String(snapshotError)}`
+            );
+          }
+
           const settled = await tryReactiveSettlement({
             pool,
             poolConfig,
@@ -287,7 +353,8 @@ async function collectLpRewardsLoop({
               dryRun: config.dryRun,
               subgraphUrl: config.subgraphUrl,
               delayBetweenActions: config.delayBetweenActions
-            }
+            },
+            snapshot,
           });
   
           if (settled) {

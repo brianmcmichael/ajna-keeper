@@ -4,7 +4,7 @@ import { KeeperConfig, PoolConfig, SettlementConfig } from './config-types';
 import { logger } from './logging';
 import { poolSettle } from './transactions';
 import { weiToDecimaled, delay, RequireFields } from './utils';
-import subgraph from './subgraph';
+import subgraph, { PoolSnapshot } from './subgraph';
 
 interface SettlementStatus {
   auctionExists: boolean;
@@ -39,7 +39,8 @@ export class SettlementHandler {
     private pool: FungiblePool,
     private signer: Signer,
     private poolConfig: RequireFields<PoolConfig, 'settlement'>,
-    private config: Pick<KeeperConfig, 'dryRun' | 'subgraphUrl' | 'delayBetweenActions'>
+    private config: Pick<KeeperConfig, 'dryRun' | 'subgraphUrl' | 'delayBetweenActions'>,
+    private snapshot?: PoolSnapshot
   ) {}
 
   /**
@@ -68,6 +69,13 @@ export class SettlementHandler {
   public async findSettleableAuctions(): Promise<AuctionToSettle[]> {
     const now = Date.now();
     const minAge = this.poolConfig.settlement.minAuctionAge || 3600;
+
+    if (this.snapshot) {
+      const auctions = await this.buildAuctionsFromSnapshot(now, minAge);
+      this.cachedAuctions = auctions;
+      this.lastSubgraphQuery = now;
+      return auctions;
+    }
     
     // Smart caching that doesn't prevent settlement of old auctions
     const cacheAge = now - this.lastSubgraphQuery;
@@ -153,6 +161,85 @@ export class SettlementHandler {
   
       return []; // Return empty array, don't crash
     }  
+  }
+
+  private async buildAuctionsFromSnapshot(now: number, minAge: number): Promise<AuctionToSettle[]> {
+    if (!this.snapshot) {
+      return [];
+    }
+
+    const actuallySettleable: AuctionToSettle[] = [];
+
+    for (const auction of this.snapshot.liquidationAuctions) {
+      if (auction.settled) {
+        continue;
+      }
+
+      const borrower = auction.borrower;
+      const kickTimeSeconds = Number(auction.kickTime ?? '0');
+      const kickTimeMs = Number.isFinite(kickTimeSeconds)
+        ? kickTimeSeconds * 1000
+        : 0;
+      const ageSeconds = (now - kickTimeMs) / 1000;
+
+      if (ageSeconds < minAge) {
+        logger.debug(
+          `Snapshot: auction ${borrower.slice(0, 8)} too young (${Math.round(
+            ageSeconds
+          )}s < ${minAge}s) - skipping`
+        );
+        continue;
+      }
+
+      logger.debug(
+        `Snapshot: checking settlement need for ${borrower.slice(0, 8)} (age: ${Math.round(
+          ageSeconds
+        )}s)`
+      );
+
+      const settlementCheck = await this.needsSettlement(borrower);
+
+      if (settlementCheck.needs) {
+        logger.debug(
+          `Snapshot: auction ${borrower.slice(0, 8)} requires settlement: ${settlementCheck.reason}`
+        );
+        actuallySettleable.push({
+          borrower,
+          kickTime: kickTimeMs,
+          debtRemaining: this.parseBigDecimalToWei(auction.debtRemaining),
+          collateralRemaining: this.parseBigDecimalToWei(
+            auction.collateralRemaining
+          ),
+        });
+      } else {
+        logger.debug(
+          `Snapshot: auction ${borrower.slice(0, 8)} does not need settlement: ${settlementCheck.reason}`
+        );
+      }
+    }
+
+    if (actuallySettleable.length === 0) {
+      logger.debug(
+        `Snapshot: no auctions actually need settlement in pool ${this.pool.name}`
+      );
+    } else {
+      logger.info(
+        `Snapshot: found ${actuallySettleable.length} settleable auctions in pool ${this.pool.name}`
+      );
+    }
+
+    return actuallySettleable;
+  }
+
+  private parseBigDecimalToWei(value?: string | null): BigNumber {
+    if (!value || value === '0' || value === '0.0') {
+      return ethers.constants.Zero;
+    }
+    try {
+      return ethers.utils.parseEther(value);
+    } catch {
+      return ethers.constants.Zero;
+    }
   }
 
   /**
@@ -428,13 +515,15 @@ export async function handleSettlements({
   poolConfig,
   signer,
   config,
+  snapshot,
 }: {
   pool: FungiblePool;
   poolConfig: RequireFields<PoolConfig, 'settlement'>;
   signer: Signer;
   config: Pick<KeeperConfig, 'dryRun' | 'subgraphUrl' | 'delayBetweenActions'>;
+  snapshot?: PoolSnapshot;
 }): Promise<void> {
-  const handler = new SettlementHandler(pool, signer, poolConfig, config);
+  const handler = new SettlementHandler(pool, signer, poolConfig, config, snapshot);
   await handler.handleSettlements();
 }
 
@@ -446,11 +535,13 @@ export async function tryReactiveSettlement({
   poolConfig,
   signer,
   config,
+  snapshot,
 }: {
   pool: FungiblePool;
   poolConfig: PoolConfig;
   signer: Signer;
   config: Pick<KeeperConfig, 'dryRun' | 'subgraphUrl' | 'delayBetweenActions'>;
+  snapshot?: PoolSnapshot;
 }): Promise<boolean> {
   if (!poolConfig.settlement?.enabled) {
     return false;
@@ -461,7 +552,8 @@ export async function tryReactiveSettlement({
     pool,
     signer,
     poolConfig as RequireFields<PoolConfig, 'settlement'>,
-    config
+    config,
+    snapshot
   );
 
   const auctions = await handler.findSettleableAuctions();

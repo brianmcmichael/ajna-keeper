@@ -18,6 +18,8 @@ import {
   resetHardhat,
   setBalance,
   increaseTime,
+  makeConfigPick,
+  createTestKeeperConfig,
 } from './test-utils';
 import {
   makeGetHighestMeaningfulBucket,
@@ -72,12 +74,22 @@ describe('Factory Takes Integration Tests', () => {
       pool,
       poolConfig: MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
       signer,
-      config: {
-        dryRun: false,
-        subgraphUrl: '',
-        coinGeckoApiKey: '',
-        delayBetweenActions: 0,
-      },
+      config: makeConfigPick(
+        [
+          'dryRun',
+          'subgraphUrl',
+          'coinGeckoApiKey',
+          'delayBetweenActions',
+          'ethRpcUrl',
+          'tokenAddresses',
+        ] as const,
+        {
+          dryRun: false,
+          subgraphUrl: '',
+          coinGeckoApiKey: '',
+          delayBetweenActions: 0,
+        }
+      ),
     });
 
     // Age the auction to make it takeable
@@ -124,24 +136,39 @@ describe('Factory Takes Integration Tests', () => {
       await setupFactoryTakeScenario();
       
       // Based on your working hemi-conf-settlement.ts
-      const hemiFactoryConfig = {
-        dryRun: true, // Test workflow without external transactions
-        subgraphUrl: 'http://test-url',
-        delayBetweenActions: 100,
-        keeperTakerFactory: '0xB6006B9e9696a0A097D4990964D5bDa6E940ba0D',
-        takerContracts: {
-          'UniswapV3': '0x81D39B4A2Be43e5655608fCcE18A0edd8906D7c7'
+      const hemiFactoryConfig = makeConfigPick(
+        [
+          'dryRun',
+          'subgraphUrl',
+          'delayBetweenActions',
+          'keeperTakerFactory',
+          'takerContracts',
+          'universalRouterOverrides',
+          'sushiswapRouterOverrides',
+          'curveRouterOverrides',
+          'aerodromeRouterOverrides',
+          'tokenAddresses',
+        ] as const,
+        {
+          dryRun: true,
+          subgraphUrl: 'http://test-url',
+          delayBetweenActions: 100,
+          keeperTakerFactory: '0xB6006B9e9696a0A097D4990964D5bDa6E940ba0D',
+          takerContracts: {
+            UniswapV3: '0x81D39B4A2Be43e5655608fCcE18A0edd8906D7c7',
+          },
+          universalRouterOverrides: {
+            universalRouterAddress: '0x533c7A53389e0538AB6aE1D7798D6C1213eAc28B',
+            wethAddress: '0x4200000000000000000000000000000000000006',
+            permit2Address: '0xB952578f3520EE8Ea45b7914994dcf4702cEe578',
+            defaultFeeTier: 3000,
+            defaultSlippage: 0.5,
+            poolFactoryAddress: '0x346239972d1fa486FC4a521031BC81bFB7D6e8a4',
+            quoterV2Address: '0xcBa55304013187D49d4012F4d7e4B63a04405cd5',
+          },
         },
-        universalRouterOverrides: {
-          universalRouterAddress: '0x533c7A53389e0538AB6aE1D7798D6C1213eAc28B',
-          wethAddress: '0x4200000000000000000000000000000000000006',
-          permit2Address: '0xB952578f3520EE8Ea45b7914994dcf4702cEe578',
-          defaultFeeTier: 3000,
-          defaultSlippage: 0.5,
-          poolFactoryAddress: '0x346239972d1fa486FC4a521031BC81bFB7D6e8a4',
-          quoterV2Address: '0xcBa55304013187D49d4012F4d7e4B63a04405cd5',
-        }
-      };
+        createTestKeeperConfig()
+      );
 
       const poolConfigWithUniswap: PoolConfig = {
         ...MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
@@ -158,7 +185,7 @@ describe('Factory Takes Integration Tests', () => {
         signer,
         pool,
         poolConfig: poolConfigWithUniswap as any,
-        config: hemiFactoryConfig as any,
+        config: hemiFactoryConfig,
       });
       
       // If we get here, factory workflow executed correctly
@@ -168,23 +195,38 @@ describe('Factory Takes Integration Tests', () => {
     it('should handle factory take with both external and arbTake strategies', async () => {
       await setupFactoryTakeScenario();
       
-      const factoryConfig = {
-        dryRun: true,
-        subgraphUrl: 'http://test-url',
-        delayBetweenActions: 100,
-        keeperTakerFactory: '0x1234567890123456789012345678901234567890',
-        takerContracts: {
-          'UniswapV3': '0x2234567890123456789012345678901234567890'
+      const factoryConfig = makeConfigPick(
+        [
+          'dryRun',
+          'subgraphUrl',
+          'delayBetweenActions',
+          'keeperTakerFactory',
+          'takerContracts',
+          'universalRouterOverrides',
+          'sushiswapRouterOverrides',
+          'curveRouterOverrides',
+          'aerodromeRouterOverrides',
+          'tokenAddresses',
+        ] as const,
+        {
+          dryRun: true,
+          subgraphUrl: 'http://test-url',
+          delayBetweenActions: 100,
+          keeperTakerFactory: '0x1234567890123456789012345678901234567890',
+          takerContracts: {
+            UniswapV3: '0x2234567890123456789012345678901234567890',
+          },
+          universalRouterOverrides: {
+            universalRouterAddress: '0x533c7A53389e0538AB6aE1D7798D6C1213eAc28B',
+            wethAddress: '0x4200000000000000000000000000000000000006',
+            permit2Address: '0xB952578f3520EE8Ea45b7914994dcf4702cEe578',
+            defaultFeeTier: 3000,
+            poolFactoryAddress: '0x346239972d1fa486FC4a521031BC81bFB7D6e8a4',
+            quoterV2Address: '0xcBa55304013187D49d4012F4d7e4B63a04405cd5',
+          },
         },
-        universalRouterOverrides: {
-          universalRouterAddress: '0x533c7A53389e0538AB6aE1D7798D6C1213eAc28B',
-          wethAddress: '0x4200000000000000000000000000000000000006',
-          permit2Address: '0xB952578f3520EE8Ea45b7914994dcf4702cEe578',
-          defaultFeeTier: 3000,
-          poolFactoryAddress: '0x346239972d1fa486FC4a521031BC81bFB7D6e8a4',
-          quoterV2Address: '0xcBa55304013187D49d4012F4d7e4B63a04405cd5',
-        }
-      };
+        createTestKeeperConfig()
+      );
 
       const combinedPoolConfig: PoolConfig = {
         ...MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
@@ -201,7 +243,7 @@ describe('Factory Takes Integration Tests', () => {
         signer,
         pool,
         poolConfig: combinedPoolConfig as any,
-        config: factoryConfig as any,
+        config: factoryConfig,
       });
       
       expect(true).to.be.true;

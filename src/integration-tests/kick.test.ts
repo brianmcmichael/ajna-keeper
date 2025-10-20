@@ -9,6 +9,7 @@ import {
   increaseTime,
   impersonateSigner,
   setBalance,
+  makeConfigPick,
 } from './test-utils';
 import { depositQuoteToken, drawDebt } from './loan-helpers';
 import { makeGetLoansFromSdk, overrideGetLoans } from './subgraph-mock';
@@ -47,10 +48,13 @@ describe('getLoansToKick', () => {
       getLoansToKick({
         pool,
         poolConfig: MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
-        config: {
-          subgraphUrl: '',
-          coinGeckoApiKey: '',
-        },
+        config: makeConfigPick(
+          ['subgraphUrl', 'coinGeckoApiKey', 'ethRpcUrl', 'tokenAddresses'] as const,
+          {
+            subgraphUrl: '',
+            coinGeckoApiKey: '',
+          }
+        ),
       })
     );
     expect(loansToKick).to.be.empty;
@@ -81,10 +85,13 @@ describe('getLoansToKick', () => {
       getLoansToKick({
         pool,
         poolConfig: MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
-        config: {
-          subgraphUrl: '',
-          coinGeckoApiKey: '',
-        },
+        config: makeConfigPick(
+          ['subgraphUrl', 'coinGeckoApiKey', 'ethRpcUrl', 'tokenAddresses'] as const,
+          {
+            subgraphUrl: '',
+            coinGeckoApiKey: '',
+          }
+        ),
       })
     );
     expect(loansToKick.length).equals(1);
@@ -123,10 +130,13 @@ describe('kick', () => {
       getLoansToKick({
         pool,
         poolConfig: MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
-        config: {
-          subgraphUrl: '',
-          coinGeckoApiKey: '',
-        },
+        config: makeConfigPick(
+          ['subgraphUrl', 'coinGeckoApiKey', 'ethRpcUrl', 'tokenAddresses'] as const,
+          {
+            subgraphUrl: '',
+            coinGeckoApiKey: '',
+          }
+        ),
       })
     );
     const signer = await impersonateSigner(
@@ -141,9 +151,7 @@ describe('kick', () => {
       pool,
       signer,
       loanToKick: loansToKick[0],
-      config: {
-        dryRun: false,
-      },
+      config: makeConfigPick(['dryRun'] as const, { dryRun: false }),
     });
     const loan = await pool.getLoan(
       MAINNET_CONFIG.SOL_WETH_POOL.collateralWhaleAddress

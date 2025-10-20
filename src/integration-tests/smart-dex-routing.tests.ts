@@ -70,7 +70,7 @@ describe('Smart DEX Routing Integration Tests', () => {
     it('should detect none deployment for arbTake-only config', async () => {
       // Config with no external DEX integration
       const arbTakeOnlyConfig = {
-        subgraphUrl: 'http://test-url',
+        pools: [],
         // No keeperTaker or keeperTakerFactory
       };
 
@@ -141,7 +141,7 @@ describe('Smart DEX Routing Integration Tests', () => {
 
     it('should validate none deployment gracefully', async () => {
       const noneConfig = {
-        subgraphUrl: 'http://test-url'
+        pools: [],
       };
 
       const manager = new SmartDexManager(mockSigner, noneConfig);

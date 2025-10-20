@@ -2,7 +2,6 @@ import './subgraph-mock';
 import { AjnaSDK, FungiblePool } from '@ajna-finance/sdk';
 import { expect } from 'chai';
 import { BigNumber, constants } from 'ethers';
-import { BigNumber, constants } from 'ethers';
 import { configureAjna, KeeperConfig, PoolConfig } from '../config-types';
 import { NonceTracker } from '../nonce';
 import { SettlementHandler, tryReactiveSettlement, handleSettlements } from '../settlement';
@@ -19,6 +18,7 @@ import {
   resetHardhat,
   setBalance,
   increaseTime,
+  makeConfigPick,
 } from './test-utils';
 import { depositQuoteToken, drawDebt } from './loan-helpers';
 import { handleKicks } from '../kick';
@@ -68,11 +68,14 @@ describe('Settlement Integration Tests', () => {
       },
     };
 
-    keeperConfig = {
-      dryRun: false,
-      subgraphUrl: 'http://test-subgraph-url',
-      delayBetweenActions: 100, // Short delay for testing
-    };
+    keeperConfig = makeConfigPick(
+      ['dryRun', 'subgraphUrl', 'delayBetweenActions'] as const,
+      {
+        dryRun: false,
+        subgraphUrl: 'http://test-subgraph-url',
+        delayBetweenActions: 100,
+      }
+    );
   });
 
   describe('Real Settlement Scenarios', () => {
@@ -128,12 +131,22 @@ describe('Settlement Integration Tests', () => {
         pool,
         poolConfig: MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
         signer: kickerSigner,
-        config: {
-          dryRun: false,
-          subgraphUrl: '',
-          coinGeckoApiKey: '',
-          delayBetweenActions: 0,
-        },
+        config: makeConfigPick(
+          [
+            'dryRun',
+            'subgraphUrl',
+            'coinGeckoApiKey',
+            'delayBetweenActions',
+            'ethRpcUrl',
+            'tokenAddresses',
+          ] as const,
+          {
+            dryRun: false,
+            subgraphUrl: '',
+            coinGeckoApiKey: '',
+            delayBetweenActions: 0,
+          }
+        ),
       });
       console.log(`Loan kicked for borrower: ${borrowerAddress}`);
 
@@ -148,11 +161,29 @@ describe('Settlement Integration Tests', () => {
           pool,
           poolConfig: MAINNET_CONFIG.SOL_WETH_POOL.poolConfig,
           signer: kickerSigner,
-          config: {
-            dryRun: false,
-            subgraphUrl: '',
-            delayBetweenActions: 0,
-          },
+          config: makeConfigPick(
+            [
+              'dryRun',
+              'subgraphUrl',
+              'delayBetweenActions',
+              'connectorTokens',
+              'oneInchRouters',
+              'keeperTaker',
+              'keeperTakerFactory',
+              'takerContracts',
+              'universalRouterOverrides',
+              'sushiswapRouterOverrides',
+              'curveRouterOverrides',
+              'tokenAddresses',
+            ] as const,
+            {
+              dryRun: false,
+              subgraphUrl: '',
+              delayBetweenActions: 0,
+              oneInchRouters: {},
+              connectorTokens: [],
+            }
+          ),
         });
         console.log('Take handling completed');
       } catch (error) {

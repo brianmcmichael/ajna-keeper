@@ -2,6 +2,44 @@ import { HARDHAT_RPC_URL, MAINNET_CONFIG } from './test-config';
 import { delay } from '../utils';
 import { JsonRpcProvider } from '../provider';
 import { NonceTracker } from '../nonce';
+import { KeeperConfig } from '../config-types';
+
+const BASE_TEST_KEEPER_CONFIG: KeeperConfig = {
+  ethRpcUrl: HARDHAT_RPC_URL,
+  logLevel: 'debug',
+  subgraphUrl: '',
+  keeperKeystore: '/tmp/test-keeper-keystore.json',
+  ajna: MAINNET_CONFIG.AJNA_CONFIG,
+  pools: [],
+  delayBetweenActions: 0,
+  delayBetweenRuns: 0,
+  dryRun: false,
+  coinGeckoApiKey: '',
+  oneInchRouters: {},
+  tokenAddresses: {},
+  connectorTokens: [],
+};
+
+export function createTestKeeperConfig(
+  overrides: Partial<KeeperConfig> = {}
+): KeeperConfig {
+  return {
+    ...BASE_TEST_KEEPER_CONFIG,
+    ...overrides,
+  };
+}
+
+export function makeConfigPick<K extends keyof KeeperConfig>(
+  keys: readonly K[],
+  overrides: Partial<Pick<KeeperConfig, K>> = {},
+  base: KeeperConfig = createTestKeeperConfig()
+): Pick<KeeperConfig, K> {
+  const picked = {} as Pick<KeeperConfig, K>;
+  for (const key of keys) {
+    (picked as any)[key] = base[key];
+  }
+  return Object.assign(picked, overrides);
+}
 
 export const getProvider = () => new JsonRpcProvider(HARDHAT_RPC_URL);
 

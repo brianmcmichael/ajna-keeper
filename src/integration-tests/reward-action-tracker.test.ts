@@ -4,6 +4,7 @@ import {
   impersonateSigner,
   resetHardhat,
   setBalance,
+  createTestKeeperConfig,
 } from './test-utils';
 import { MAINNET_CONFIG, USER1_MNEMONIC } from './test-config';
 import { RewardActionTracker } from '../reward-action-tracker';
@@ -33,14 +34,12 @@ describe('RewardActionTracker', () => {
     const dexRouter = new DexRouter(signer);
     const et = new RewardActionTracker(
       signer,
-      {
+      createTestKeeperConfig({
         uniswapOverrides: {
-          wethAddress: wethAddress,
-          uniswapV3Router: uniswapV3Router,
+          wethAddress,
+          uniswapV3Router,
         },
-        delayBetweenActions: 0,
-        pools: [],
-      },
+      }),
       dexRouter
     );
     et.addToken(

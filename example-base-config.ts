@@ -151,8 +151,8 @@ const config: KeeperConfig = {
       name: 'cbETH / WETH',
       address: '0xcb1953ee28f89731c0ec088da0720fc282fcfa9c',
       price: {
-        source: PriceOriginSource.POOL,
-        reference: PriceOriginPoolReference.LUP,
+        source: PriceOriginSource.COINGECKO,
+        query: 'price?ids=coinbase-wrapped-staked-eth&vs_currencies=eth',
       },
       kick: {
         minDebt: 0.08,

@@ -90,8 +90,8 @@ const config: KeeperConfig = {
       name: 'wstETH / WETH',
       address: '0x63a366fc5976ff72999c89f69366f388b7d233e8',
       price: {
-        source: PriceOriginSource.FIXED,
-        value: 1.15,
+        source: PriceOriginSource.COINGECKO,
+        query: 'price?ids=wrapped-steth&vs_currencies=eth',
       },
       kick: {
         minDebt: 0.07,
@@ -108,7 +108,7 @@ const config: KeeperConfig = {
       collectLpReward: {
         redeemFirst: TokenToCollect.QUOTE,
         minAmountQuote: 0.001,
-        minAmountCollateral: 1000,
+        minAmountCollateral: 0.1,
       },
       settlement: {
         enabled: true,
